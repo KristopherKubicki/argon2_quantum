@@ -31,7 +31,41 @@ class Backend(Protocol):
 @dataclass
 class LocalBackend:
     def run(self, seed: bytes) -> bytes:
-        digest = hashlib.sha512(seed).digest()
+        try:
+            from qiskit import QuantumCircuit
+            from qiskit_aer import AerSimulator
+
+            sim = AerSimulator(seed_simulator=int.from_bytes(seed[:4], "big"))
+            qc = QuantumCircuit(1, 1)
+            qc.h(0)
+            qc.measure(0, 0)
+            result = sim.run(qc, shots=1).result()
+            counts = result.get_counts()
+            bit = 1 if counts.get("1", 0) else 0
+            return bytes([bit])
+        except Exception:  # pragma: no cover - optional dep
+            digest = hashlib.sha512(seed).digest()
+            return digest[:1]
+
+
+@dataclass
+class BraketBackend:
+    shots: int = 8
+
+    def run(self, seed: bytes) -> bytes:
+        import boto3
+
+        client = boto3.client("braket")
+        token = base64.urlsafe_b64encode(seed).decode()
+        task = client.create_quantum_task(
+            deviceArn="arn:aws:braket:::device/qpu/ionq/Aria-1",
+            shots=self.shots,
+            action="{}",
+            clientToken=token,
+            outputS3Bucket="dummy",
+            outputS3KeyPrefix="dummy",
+        )
+        digest = hashlib.sha512(task["quantumTaskArn"].encode() + seed).digest()
         return digest[:1]
 
 

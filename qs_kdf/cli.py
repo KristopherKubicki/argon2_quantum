@@ -1,6 +1,6 @@
 import argparse
 
-from .core import LocalBackend, hash_password
+from .core import BraketBackend, LocalBackend, hash_password
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -12,7 +12,7 @@ def main(argv: list[str] | None = None) -> int:
     h.add_argument("--cloud", action="store_true")
     args = parser.parse_args(argv)
     salt = bytes.fromhex(args.salt)
-    backend = LocalBackend()
+    backend = BraketBackend() if args.cloud else LocalBackend()
     digest = hash_password(args.password, salt, backend=backend)
     print(digest.hex())
     return 0
