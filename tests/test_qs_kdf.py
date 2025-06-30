@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import time
 
 import qs_kdf
 
@@ -19,3 +20,15 @@ def test_cli_output():
         check=True,
     )
     assert result.stdout.strip()
+
+
+def test_timing_attack():
+    salt = b"\x02" * 16
+    backend = qs_kdf.TestBackend()
+    start_good = time.perf_counter()
+    qs_kdf.hash_password("pw", salt, backend=backend)
+    good = time.perf_counter() - start_good
+    start_bad = time.perf_counter()
+    qs_kdf.hash_password("bad", salt, backend=backend)
+    bad = time.perf_counter() - start_bad
+    assert abs(good - bad) <= 0.01

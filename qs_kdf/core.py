@@ -19,8 +19,11 @@ except Exception:  # pragma: no cover - optional
         parallelism: int,
         hash_len: int,
         type: int,
+        *,
+        secret: bytes | None = None,
     ) -> bytes:
-        return hashlib.pbkdf2_hmac("sha256", password, salt, 1, dklen=hash_len)
+        data = password if secret is None else password + secret
+        return hashlib.pbkdf2_hmac("sha256", data, salt, 1, dklen=hash_len)
 
 
 class Backend(Protocol):
