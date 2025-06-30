@@ -60,7 +60,6 @@ def hash_password(
         parallelism=4,
         hash_len=32,
         type=Type.ID,
-        secret=pepper,
     )
     return digest
 
