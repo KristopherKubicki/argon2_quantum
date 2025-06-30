@@ -1,2 +1,3 @@
 qiskit
 argon2-cffi
+ruff
