@@ -1,2 +1,2 @@
-# Argon Quantum
+# Argon2 Quantum
 
