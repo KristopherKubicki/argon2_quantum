@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qs-kdf"
+version = "0.1.0"
+description = "Quantum stretch KDF demonstration"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "qiskit",
+    "argon2-cffi",
+]
+
+[project.optional-dependencies]
+dev = ["ruff"]
+
+[project.scripts]
+qs_kdf = "qs_kdf.cli:main"
