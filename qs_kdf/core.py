@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import os
+import secrets
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -83,6 +84,18 @@ def hash_password(
         type=Type.ID,
     )
     return digest
+
+
+def verify_password(
+    password: str,
+    salt: bytes,
+    digest: bytes,
+    backend: Backend | None = None,
+    pepper: bytes | None = None,
+) -> bool:
+    """Return ``True`` if password and salt match ``digest``."""
+    candidate = hash_password(password, salt, backend=backend, pepper=pepper)
+    return secrets.compare_digest(candidate, digest)
 
 
 class RedisCache:
