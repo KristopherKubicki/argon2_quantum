@@ -2,28 +2,31 @@ import base64
 import hashlib
 import os
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:  # pragma: no cover - type hints only
     from argon2.low_level import Type, hash_secret_raw
-except Exception:  # pragma: no cover - optional
+else:
+    try:
+        from argon2.low_level import Type, hash_secret_raw
+    except Exception:  # pragma: no cover - optional dependency missing
 
-    class Type:
-        ID = 2
+        class Type:
+            ID = 2
 
-    def hash_secret_raw(
-        password: bytes,
-        salt: bytes,
-        time_cost: int,
-        memory_cost: int,
-        parallelism: int,
-        hash_len: int,
-        type: int,
-        *,
-        secret: bytes | None = None,
-    ) -> bytes:
-        data = password if secret is None else password + secret
-        return hashlib.pbkdf2_hmac("sha256", data, salt, 1, dklen=hash_len)
+        def hash_secret_raw(
+            password: bytes,
+            salt: bytes,
+            time_cost: int,
+            memory_cost: int,
+            parallelism: int,
+            hash_len: int,
+            type: int,
+            *,
+            secret: bytes | None = None,
+        ) -> bytes:
+            data = password if secret is None else password + secret
+            return hashlib.pbkdf2_hmac("sha256", data, salt, 1, dklen=hash_len)
 
 
 class Backend(Protocol):
