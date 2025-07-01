@@ -13,3 +13,8 @@ The script prints a Base64 digest derived from the password, salt and a fixed
 pepper. The `qsargon2.qstretch` function is deterministic and unit tested.
 ```
 
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for
+details.
+
