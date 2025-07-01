@@ -1,6 +1,6 @@
 import argparse
 
-from .core import LocalBackend, hash_password
+from .core import LocalBackend, hash_password, lambda_handler
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -12,9 +12,13 @@ def main(argv: list[str] | None = None) -> int:
     h.add_argument("--cloud", action="store_true")
     args = parser.parse_args(argv)
     salt = bytes.fromhex(args.salt)
-    backend = LocalBackend()
-    digest = hash_password(args.password, salt, backend=backend)
-    print(digest.hex())
+    if args.cloud:
+        response = lambda_handler({"password": args.password, "salt": args.salt}, None)
+        digest_hex = response["digest"]
+    else:
+        backend = LocalBackend()
+        digest_hex = hash_password(args.password, salt, backend=backend).hex()
+    print(digest_hex)
     return 0
 
 
