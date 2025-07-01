@@ -4,6 +4,26 @@ import os
 from dataclasses import dataclass
 from typing import Protocol
 
+_warmed_up = False
+
+
+def _warm_up() -> None:
+    """Preload Argon2 memory to stabilize runtime."""
+    global _warmed_up
+    if _warmed_up:
+        return
+    hash_secret_raw(
+        b"x",
+        b"\x00" * 17,
+        time_cost=3,
+        memory_cost=262_144,
+        parallelism=4,
+        hash_len=32,
+        type=Type.ID,
+    )
+    _warmed_up = True
+
+
 try:
     from argon2.low_level import Type, hash_secret_raw  # type: ignore
 except Exception:  # pragma: no cover - optional
@@ -45,6 +65,7 @@ def hash_password(
     pepper: bytes | None = None,
 ) -> bytes:
     """Return Argon2id digest with quantum salt byte."""
+    _warm_up()
     if backend is None:
         backend = LocalBackend()
     if pepper is None:
