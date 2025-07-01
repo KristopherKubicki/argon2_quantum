@@ -1,8 +1,11 @@
-import subprocess
-import sys
+import io
 import time
+import contextlib
 
+import importlib
 import qs_kdf
+
+cli_module = importlib.import_module("qs_kdf.cli")
 
 
 def test_hash_password_length():
@@ -12,14 +15,25 @@ def test_hash_password_length():
     assert len(digest) == 32
 
 
-def test_cli_output():
-    result = subprocess.run(
-        [sys.executable, "-m", "qs_kdf", "hash", "pw", "--salt", "01" * 16],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    assert result.stdout.strip()
+def _run_cli(argv: list[str]) -> str:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        cli_module.main(argv)
+    return buf.getvalue().strip()
+
+
+def test_cli_output_local():
+    out = _run_cli(["hash", "pw", "--salt", "01" * 16])
+    assert out
+
+
+def test_cli_output_cloud(monkeypatch):
+    def fake_handler(event: dict, _ctx: object) -> dict:
+        return {"digest": "deadbeef"}
+
+    monkeypatch.setattr(cli_module, "lambda_handler", fake_handler)
+    out = _run_cli(["hash", "pw", "--salt", "01" * 16, "--cloud"])
+    assert out == "deadbeef"
 
 
 def test_timing_attack():

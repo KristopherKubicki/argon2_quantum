@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from typing import Protocol
 
 try:
-    from argon2.low_level import Type, hash_secret_raw
+    from argon2.low_level import Type, hash_secret_raw  # type: ignore
 except Exception:  # pragma: no cover - optional
 
-    class Type:
+    class Type:  # type: ignore[no-redef]
         ID = 2
 
     def hash_secret_raw(
@@ -78,8 +78,8 @@ class RedisCache:
 
 
 def lambda_handler(event: dict, _ctx) -> dict:
-    import boto3
-    import redis
+    import boto3  # type: ignore
+    import redis  # type: ignore
 
     salt_hex = event["salt"]
     password = event["password"]
