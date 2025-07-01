@@ -46,3 +46,26 @@ def test_timing_attack():
     qs_kdf.hash_password("bad", salt, backend=backend)
     bad = time.perf_counter() - start_bad
     assert abs(good - bad) <= 0.01
+
+
+def test_verify_password():
+    salt = b"\x03" * 16
+    backend = qs_kdf.TestBackend()
+    digest = qs_kdf.hash_password("pw", salt, backend=backend)
+    assert qs_kdf.verify_password("pw", salt, digest, backend=backend)
+    assert not qs_kdf.verify_password("bad", salt, digest, backend=backend)
+
+
+def test_cli_verify():
+    backend = qs_kdf.LocalBackend()
+    salt = b"\x04" * 16
+    digest = qs_kdf.hash_password("pw", salt, backend=backend)
+    out = _run_cli([
+        "verify",
+        "pw",
+        "--salt",
+        "04" * 16,
+        "--digest",
+        digest.hex(),
+    ])
+    assert out == "OK"

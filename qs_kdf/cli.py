@@ -1,6 +1,6 @@
 import argparse
 
-from .core import LocalBackend, hash_password, lambda_handler
+from .core import LocalBackend, hash_password, verify_password, lambda_handler
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -10,15 +10,27 @@ def main(argv: list[str] | None = None) -> int:
     h.add_argument("password")
     h.add_argument("--salt", required=True)
     h.add_argument("--cloud", action="store_true")
+
+    v = sub.add_parser("verify")
+    v.add_argument("password")
+    v.add_argument("--salt", required=True)
+    v.add_argument("--digest", required=True)
+
     args = parser.parse_args(argv)
     salt = bytes.fromhex(args.salt)
-    if args.cloud:
-        response = lambda_handler({"password": args.password, "salt": args.salt}, None)
-        digest_hex = response["digest"]
+    if args.cmd == "hash":
+        if args.cloud:
+            response = lambda_handler({"password": args.password, "salt": args.salt}, None)
+            digest_hex = response["digest"]
+        else:
+            backend = LocalBackend()
+            digest_hex = hash_password(args.password, salt, backend=backend).hex()
+        print(digest_hex)
     else:
+        digest = bytes.fromhex(args.digest)
         backend = LocalBackend()
-        digest_hex = hash_password(args.password, salt, backend=backend).hex()
-    print(digest_hex)
+        ok = verify_password(args.password, salt, digest, backend=backend)
+        print("OK" if ok else "NOPE")
     return 0
 
 
