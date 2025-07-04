@@ -1,8 +1,8 @@
+import contextlib
+import importlib
 import io
 import time
-import contextlib
 
-import importlib
 import qs_kdf
 
 cli_module = importlib.import_module("qs_kdf.cli")
@@ -60,12 +60,25 @@ def test_cli_verify():
     backend = qs_kdf.LocalBackend()
     salt = b"\x04" * 16
     digest = qs_kdf.hash_password("pw", salt, backend=backend)
-    out = _run_cli([
-        "verify",
-        "pw",
-        "--salt",
-        "04" * 16,
-        "--digest",
-        digest.hex(),
-    ])
+    out = _run_cli(
+        [
+            "verify",
+            "pw",
+            "--salt",
+            "04" * 16,
+            "--digest",
+            digest.hex(),
+        ]
+    )
     assert out == "OK"
+
+
+def test_kms_backend(monkeypatch):
+    class FakeKMS:
+        def generate_random(self, NumberOfBytes: int):
+            assert NumberOfBytes == 1
+            return {"Plaintext": b"\x42"}
+
+    backend = qs_kdf.KmsBackend(kms_client=FakeKMS())
+    result = backend.run(b"seed")
+    assert result == b"\x42"

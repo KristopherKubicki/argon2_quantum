@@ -1,7 +1,8 @@
 # Argon2 Quantum
 
-This project demonstrates a simulated "quantum" pre-hash followed by a classic
-memory-hard KDF. The quantum step is emulated and **not** real security.
+This project demonstrates a quantum inspired pre-hash using a random byte
+retrieved from AWS KMS followed by a classic memory-hard KDF. The quantum step
+is implemented via the `GenerateRandom` API to show a true service call.
 
 ## Getting Started
 

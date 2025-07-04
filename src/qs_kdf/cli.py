@@ -1,6 +1,6 @@
 import argparse
 
-from .core import LocalBackend, hash_password, verify_password, lambda_handler
+from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20,7 +20,9 @@ def main(argv: list[str] | None = None) -> int:
     salt = bytes.fromhex(args.salt)
     if args.cmd == "hash":
         if args.cloud:
-            response = lambda_handler({"password": args.password, "salt": args.salt}, None)
+            response = lambda_handler(
+                {"password": args.password, "salt": args.salt}, None
+            )
             digest_hex = response["digest"]
         else:
             backend = LocalBackend()

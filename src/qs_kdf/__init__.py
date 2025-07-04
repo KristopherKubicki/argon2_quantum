@@ -1,7 +1,13 @@
 """Quantum stretch KDF package."""
 
-from .core import lambda_handler, hash_password, verify_password, LocalBackend
 from .cli import main as cli
+from .core import (
+    KmsBackend,
+    LocalBackend,
+    hash_password,
+    lambda_handler,
+    verify_password,
+)
 from .test_backend import TestBackend
 
 __all__ = [
@@ -11,4 +17,5 @@ __all__ = [
     "hash_password",
     "verify_password",
     "LocalBackend",
+    "KmsBackend",
 ]
