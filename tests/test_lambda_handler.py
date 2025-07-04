@@ -60,13 +60,42 @@ class FakeCircuit:
         return self
 
 
+class FakeTable:
+    def __init__(self) -> None:
+        self.items: dict[str, dict[str, str]] = {}
+
+    def put_item(self, Item: dict) -> None:
+        self.items[Item["digest"]] = Item
+
+    def get_item(self, Key: dict) -> dict:
+        digest = Key["digest"]
+        if digest in self.items:
+            return {"Item": self.items[digest]}
+        return {}
+
+
+class FakeResource:
+    def __init__(self, table: FakeTable) -> None:
+        self._table = table
+
+    def Table(self, name: str) -> FakeTable:
+        assert name == "digests"
+        return self._table
+
+
 class FakeBoto3:
-    def __init__(self, kms: FakeKMS) -> None:
+    def __init__(self, kms: FakeKMS, table: FakeTable | None = None) -> None:
         self.kms = kms
+        self.table = table
 
     def client(self, service: str):
         assert service == "kms"
         return self.kms
+
+    def resource(self, service: str):
+        assert service == "dynamodb"
+        assert self.table is not None
+        return FakeResource(self.table)
 
 
 class FakeRedisClient:
@@ -110,9 +139,13 @@ def _expected_digest(
 
 
 def _setup_modules(
-    monkeypatch, kms: FakeKMS, redis_client: FakeRedisClient, device: FakeBraketDevice
+    monkeypatch,
+    kms: FakeKMS,
+    redis_client: FakeRedisClient,
+    device: FakeBraketDevice,
+    table: FakeTable | None = None,
 ) -> None:
-    monkeypatch.setitem(sys.modules, "boto3", FakeBoto3(kms))
+    monkeypatch.setitem(sys.modules, "boto3", FakeBoto3(kms, table))
     monkeypatch.setitem(sys.modules, "redis", FakeRedisModule(redis_client))
 
     monkeypatch.setitem(
@@ -171,3 +204,20 @@ def test_lambda_handler_missing_env(monkeypatch, var, _env):
     monkeypatch.delenv(var, raising=False)
     with pytest.raises(KeyError):
         lambda_handler({"password": "pw", "salt": "22" * 16}, None)
+
+
+def test_lambda_handler_stores_dynamo(monkeypatch, _env):
+    quantum = b"\xff"
+    pepper = b"pepper"
+    table = FakeTable()
+    kms = FakeKMS(pepper, b"cipher")
+    device = FakeBraketDevice("11111111")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device, table)
+    monkeypatch.setenv("DIGEST_TABLE", "digests")
+
+    event = {"password": "pw", "salt": "33" * 16}
+    result = lambda_handler(event, None)
+
+    item = table.items[result["digest"]]
+    assert item["quantum"] == quantum.hex()

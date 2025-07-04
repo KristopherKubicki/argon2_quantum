@@ -1,9 +1,12 @@
 import contextlib
+import hashlib
 import importlib
 import io
-import time
 import sys
+import time
 import types
+
+from test_lambda_handler import FakeBoto3, FakeKMS, FakeTable
 
 import qs_kdf
 
@@ -115,3 +118,19 @@ def test_braket_backend(monkeypatch):
     backend2 = qs_kdf.BraketBackend(device=FakeDevice("01000010"), num_bytes=2)
     result2 = backend2.run(b"seed")
     assert result2 == b"\x42\x42"
+
+
+def test_verify_password_dynamo(monkeypatch):
+
+    table = FakeTable()
+    backend = qs_kdf.TestBackend()
+    salt = b"\x05" * 16
+    pre = hashlib.sha512("pw".encode() + salt + qs_kdf.constants.PEPPER).digest()
+    quantum = backend.run(pre)
+    digest = qs_kdf.hash_password("pw", salt, backend=backend)
+    table.put_item({"digest": digest.hex(), "quantum": quantum.hex(), "ttl": 0})
+    monkeypatch.setitem(
+        sys.modules, "boto3", FakeBoto3(FakeKMS(b"pepper", b"c"), table)
+    )
+    monkeypatch.setenv("DIGEST_TABLE", "digests")
+    assert qs_kdf.verify_password("pw", salt, digest)

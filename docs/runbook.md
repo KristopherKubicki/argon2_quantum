@@ -6,6 +6,10 @@ Redis keys derive from `sha256(salt)` with a 120s TTL. Cached quantum bytes
 avoid repeated Braket calls. The cache window slightly reduces entropy but keeps
 latency acceptable for interactive logins.
 
+Each finalized digest is also stored in DynamoDB with the quantum byte used to
+derive it. Items expire after one hour via the table's TTL attribute. During
+verification the byte is fetched to reproduce the same salt extension.
+
 ## Failure Modes
 
 * **Braket Timeout**: Step Function enforces a 200 ms deadline and falls back to

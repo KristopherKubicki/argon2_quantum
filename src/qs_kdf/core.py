@@ -133,6 +133,23 @@ def verify_password(
     pepper: bytes | None = None,
 ) -> bool:
     """Return ``True`` if password and salt match ``digest``."""
+    if backend is None and os.environ.get("DIGEST_TABLE"):
+        import boto3  # type: ignore
+
+        table = boto3.resource("dynamodb").Table(os.environ["DIGEST_TABLE"])
+        result = table.get_item(Key={"digest": digest.hex()})
+        item = result.get("Item")
+        if item and "quantum" in item:
+            qb = bytes.fromhex(item["quantum"])
+
+            class FixedBackend:
+                def __init__(self, byte: bytes) -> None:
+                    self.byte = byte
+
+                def run(self, _seed: bytes) -> bytes:
+                    return self.byte
+
+            backend = FixedBackend(qb)
     candidate = hash_password(password, salt, backend=backend, pepper=pepper)
     return secrets.compare_digest(candidate, digest)
 
@@ -206,4 +223,19 @@ def lambda_handler(event: dict, _ctx) -> dict:
         pepper=pepper,
         backend=FixedBackend(quantum_byte),
     )
+    ddb_table = os.environ.get("DIGEST_TABLE")
+    if ddb_table:
+        import time
+
+        import boto3  # type: ignore
+
+        dynamo = boto3.resource("dynamodb")
+        table = dynamo.Table(ddb_table)
+        table.put_item(
+            Item={
+                "digest": digest.hex(),
+                "quantum": quantum_byte.hex(),
+                "ttl": int(time.time()) + 3600,
+            }
+        )
     return {"digest": digest.hex()}
