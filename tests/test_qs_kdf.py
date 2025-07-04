@@ -111,3 +111,7 @@ def test_braket_backend(monkeypatch):
     backend = qs_kdf.BraketBackend(device=FakeDevice("01000010"))
     result = backend.run(b"seed")
     assert result == b"\x42"
+
+    backend2 = qs_kdf.BraketBackend(device=FakeDevice("01000010"), num_bytes=2)
+    result2 = backend2.run(b"seed")
+    assert result2 == b"\x42\x42"
