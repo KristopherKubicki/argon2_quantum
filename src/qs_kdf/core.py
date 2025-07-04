@@ -61,9 +61,10 @@ class LocalBackend:
 
 @dataclass
 class BraketBackend:
-    """Backend fetching one byte from AWS Braket."""
+    """Backend fetching random bytes from AWS Braket."""
 
     device: Any | None = None
+    num_bytes: int = 1
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
         if self.device is None:
@@ -78,14 +79,21 @@ class BraketBackend:
 
     def run(self, _seed: bytes) -> bytes:
         if self.device is None:
-            return LocalBackend().run(_seed)
+            backend = LocalBackend()
+            return b"".join(
+                backend.run(_seed + i.to_bytes(1, "big")) for i in range(self.num_bytes)
+            )
+
         from braket.circuits import Circuit  # type: ignore
 
         circuit = Circuit().h(range(8)).measure(range(8))
-        task = self.device.run(circuit, shots=1)
-        result = task.result()
-        bits = next(iter(result.measurement_counts))
-        return int(bits, 2).to_bytes(1, "big")
+        result_bytes = bytearray()
+        for _ in range(self.num_bytes):
+            task = self.device.run(circuit, shots=1)
+            result = task.result()
+            bits = next(iter(result.measurement_counts))
+            result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
+        return bytes(result_bytes)
 
 
 def hash_password(
