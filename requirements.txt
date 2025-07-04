@@ -3,3 +3,4 @@ argon2-cffi
 ruff
 boto3
 redis
+pytest-cov

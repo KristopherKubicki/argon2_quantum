@@ -22,9 +22,8 @@ jobs:
         run: ruff check .
       - name: Tests
         run: |
-          pip install pytest coverage
-          coverage run -m pytest
-          coverage xml
+          pip install pytest pytest-cov
+          pytest --cov=src --cov-report=xml --cov-fail-under=70
       - name: CDK Synth
         working-directory: infra
         run: cdk synth
