@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "argon2-quantum"
+version = "0.1.0"
+description = "Toy quantum stretch KDF with Argon2"
+readme = "README.md"
+authors = [{name = "Example", email = "example@example.com"}]
+requires-python = ">=3.10"
+dependencies = [
+    "qiskit",
+    "argon2-cffi",
+    "boto3",
+    "redis",
+]
+
+[project.scripts]
+qsargon2 = "qsargon2:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
