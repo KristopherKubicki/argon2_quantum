@@ -10,26 +10,11 @@ from typing import Optional
 PEPPER = b"fixedPepper32B01234567890123"  # 24 bytes to keep example short
 
 
-def _reverse_bits(value: int, bit_width: int) -> int:
-    """Reverse bits of ``value`` given ``bit_width``."""
-    return int(f"{value:0{bit_width}b}"[::-1], 2)
-
-
 def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
-    """Return 256-bit stretched digest.
-
-    The function is deterministic and reversible in spirit but implemented
-    classically for this demo.
-    """
+    """Return 256-bit stretched digest using a double hash."""
     data = password.encode() + salt + pepper
-    digest = hashlib.sha512(data).digest()  # 64 bytes
-    result = bytearray()
-    for i in range(0, len(digest), 8):
-        chunk = digest[i : i + 8]
-        val = int.from_bytes(chunk, "big")
-        rev = _reverse_bits(val, 64)
-        result.extend(rev.to_bytes(8, "big"))
-    return bytes(result[:32])
+    digest = hashlib.sha512(data).digest()
+    return hashlib.sha256(digest).digest()
 
 
 def hash_password(
