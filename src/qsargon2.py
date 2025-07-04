@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import base64
 import hashlib
+
 try:
     from argon2.low_level import Type, hash_secret_raw
 except Exception:  # pragma: no cover - optional fallback
+
     class Type:  # type: ignore[no-redef]
         ID = 2
 
@@ -19,15 +21,26 @@ except Exception:  # pragma: no cover - optional fallback
         hash_len: int,
         type: int,
     ) -> bytes:
-        return hashlib.scrypt(password, salt=salt, n=2**14, r=8, p=parallelism, dklen=hash_len)
+        return hashlib.scrypt(
+            password,
+            salt=salt,
+            n=2**14,
+            r=8,
+            p=parallelism,
+            dklen=hash_len,
+        )
+
+
 import secrets
 from typing import Optional
 
-from qs_kdf.constants import PEPPER
+from qs_kdf.core import get_pepper
 
 
-def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
+def qstretch(password: str, salt: bytes, pepper: bytes | None = None) -> bytes:
     """Return 256-bit stretched digest using a double hash."""
+    if pepper is None:
+        pepper = get_pepper()
     data = password.encode() + salt + pepper
     digest = hashlib.sha512(data).digest()
     return hashlib.sha256(digest).digest()
@@ -36,7 +49,7 @@ def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
 def hash_password(
     password: str,
     salt: Optional[bytes] = None,
-    pepper: bytes = PEPPER,
+    pepper: bytes | None = None,
 ) -> bytes:
     """Hash ``password`` using qstretch + Argon2id.
 

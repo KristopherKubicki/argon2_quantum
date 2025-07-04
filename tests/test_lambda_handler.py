@@ -93,6 +93,7 @@ class FakeRedisModule:
 
 @pytest.fixture()
 def _env(monkeypatch):
+    monkeypatch.delenv("PEPPER", raising=False)
     monkeypatch.setenv("KMS_KEY_ID", "my-key")
     monkeypatch.setenv("PEPPER_CIPHERTEXT", base64.b64encode(b"cipher").decode())
     monkeypatch.setenv("REDIS_HOST", "r")

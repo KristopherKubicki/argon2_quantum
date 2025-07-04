@@ -1,9 +1,15 @@
 import os
 import sys
+import base64
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import qsargon2
+
+os.environ.setdefault(
+    "PEPPER",
+    base64.b64encode(b"fixedPepper32B012345678901234567").decode(),
+)
 
 
 def test_qstretch_deterministic():

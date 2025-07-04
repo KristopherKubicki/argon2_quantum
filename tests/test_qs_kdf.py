@@ -4,8 +4,15 @@ import io
 import time
 import sys
 import types
+import base64
+import os
 
 import qs_kdf
+
+os.environ.setdefault(
+    "PEPPER",
+    base64.b64encode(b"fixedPepper32B012345678901234567").decode(),
+)
 
 cli_module = importlib.import_module("qs_kdf.cli")
 

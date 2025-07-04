@@ -5,7 +5,6 @@ import secrets
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
-from .constants import PEPPER
 
 _warmed_up = False
 
@@ -47,6 +46,21 @@ except Exception:  # pragma: no cover - optional
     ) -> bytes:
         data = password if secret is None else password + secret
         return hashlib.pbkdf2_hmac("sha256", data, salt, 1, dklen=hash_len)
+
+
+def get_pepper() -> bytes:
+    """Return pepper loaded from environment or KMS."""
+    b64 = os.environ.get("PEPPER")
+    if b64:
+        return base64.b64decode(b64)
+    kms_key = os.environ["KMS_KEY_ID"]
+    cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
+    import boto3  # type: ignore
+
+    kms = boto3.client("kms")
+    return kms.decrypt(KeyId=kms_key, CiphertextBlob=base64.b64decode(cipher_b64))[
+        "Plaintext"
+    ]
 
 
 class Backend(Protocol):
@@ -109,7 +123,7 @@ def hash_password(
     if backend is None:
         backend = LocalBackend()
     if pepper is None:
-        pepper = PEPPER
+        pepper = get_pepper()
     pre = hashlib.sha512(password.encode() + salt + pepper).digest()
     quantum = backend.run(pre)
     new_salt = salt + quantum
@@ -160,20 +174,13 @@ def lambda_handler(event: dict, _ctx) -> dict:
     Returns:
         dict: Response with hex digest under "digest".
     """
-    import boto3  # type: ignore
     import redis  # type: ignore
     from braket.aws import AwsDevice  # type: ignore
     from braket.circuits import Circuit  # type: ignore
 
     salt_hex = event["salt"]
     password = event["password"]
-    kms_key = os.environ["KMS_KEY_ID"]
-    cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
-
-    kms = boto3.client("kms")
-    pepper = kms.decrypt(KeyId=kms_key, CiphertextBlob=base64.b64decode(cipher_b64))[
-        "Plaintext"
-    ]
+    pepper = get_pepper()
 
     r = redis.Redis(
         host=os.environ["REDIS_HOST"], port=int(os.environ.get("REDIS_PORT", "6379"))

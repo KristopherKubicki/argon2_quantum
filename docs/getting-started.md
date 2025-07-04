@@ -26,8 +26,9 @@ connectivity. Pass `--cloud` to route the request through the Lambda handler.
 In this demo it returns a fixed value but shows how the API would be used in
 production.
 
-The repository ships with a static 32-byte pepper used for these examples.
-Replace it with your own secret when deploying.
+Set a base64 encoded pepper via the ``PEPPER`` environment variable or use
+``PEPPER_CIPHERTEXT`` and ``KMS_KEY_ID`` for a KMS encrypted value. The demo
+constant has been removed.
 
 ## Verify a Password
 
