@@ -16,6 +16,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -r infra/requirements.txt
       - name: Ruff
         run: ruff check .
       - name: Tests
@@ -23,6 +24,7 @@ jobs:
           pip install pytest coverage
           coverage run -m pytest
           coverage xml
-      - name: Terraform Validate
-        run: terraform validate terraform
+      - name: CDK Synth
+        working-directory: infra
+        run: cdk synth
         continue-on-error: true
