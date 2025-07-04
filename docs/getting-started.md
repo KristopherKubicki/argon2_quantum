@@ -6,7 +6,7 @@ quantum stretch. A Python 3.10+ environment is required.
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
 ## Hash a Password
