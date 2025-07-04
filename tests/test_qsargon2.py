@@ -11,6 +11,7 @@ def test_qstretch_deterministic():
     digest1 = qsargon2.qstretch("password", salt)
     digest2 = qsargon2.qstretch("password", salt)
     assert digest1 == digest2
+    assert len(digest1) == 32
 
 
 def test_hash_password_length():
