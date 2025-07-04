@@ -29,24 +29,10 @@ def _warm_up() -> None:
 
 try:
     from argon2.low_level import Type, hash_secret_raw  # type: ignore
-except Exception:  # pragma: no cover - optional
-
-    class Type:  # type: ignore[no-redef]
-        ID = 2
-
-    def hash_secret_raw(
-        password: bytes,
-        salt: bytes,
-        time_cost: int,
-        memory_cost: int,
-        parallelism: int,
-        hash_len: int,
-        type: int,
-        *,
-        secret: bytes | None = None,
-    ) -> bytes:
-        data = password if secret is None else password + secret
-        return hashlib.pbkdf2_hmac("sha256", data, salt, 1, dklen=hash_len)
+except Exception as exc:  # pragma: no cover - enforce dependency
+    raise ImportError(
+        "argon2-cffi must be installed; run 'pip install argon2-cffi'"
+    ) from exc
 
 
 class Backend(Protocol):

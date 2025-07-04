@@ -13,6 +13,7 @@ quantum stretch. A Python 3.10+ environment is required.
 
 ```bash
 pip install .
+# argon2-cffi is installed as a required dependency
 ```
 
 ## Hash a Password

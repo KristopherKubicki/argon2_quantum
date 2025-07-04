@@ -23,7 +23,8 @@ resistance once quantum computers arrive.
 - An AWS account with permissions to create Lambda, KMS and Braket resources via CDK or Terraform.
 - Configured IAM credentials using the [AWS CLI](https://docs.aws.amazon.com/cli/).
 
-Install dependencies and run the CLI to hash a password with a hex salt:
+Install dependencies and run the CLI to hash a password with a hex salt.
+`argon2-cffi` is required and will be installed automatically:
 
 ```bash
 pip install .
