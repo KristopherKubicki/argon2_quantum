@@ -2,7 +2,7 @@ import base64
 import hashlib
 import os
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass 
 from typing import Any, Callable, Protocol
 
 _warmed_up = False
@@ -130,6 +130,15 @@ class RedisCache:
 
 
 def lambda_handler(event: dict, _ctx) -> dict:
+    """Handle Argon2id hashing request via AWS Lambda.
+
+    Args:
+        event: Invocation payload containing "salt" and "password".
+        _ctx: Lambda context object (unused).
+
+    Returns:
+        dict: Response with hex digest under "digest".
+    """
     import boto3  # type: ignore
     import redis  # type: ignore
 
