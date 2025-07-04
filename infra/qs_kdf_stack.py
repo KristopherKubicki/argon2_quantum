@@ -1,10 +1,10 @@
 from aws_cdk import Duration, Stack
 from aws_cdk import aws_dynamodb as dynamodb
+from aws_cdk import aws_elasticache as ec
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_kms as kms
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_logs as logs
-from aws_cdk import aws_elasticache as ec
 from aws_cdk import aws_stepfunctions as sfn
 from aws_cdk import aws_stepfunctions_tasks as tasks
 from constructs import Construct
