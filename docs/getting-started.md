@@ -49,7 +49,7 @@ Alternatively run:
 terraform -chdir=terraform apply
 ```
 
-The placeholder quantum step calls AWS Braket. You must provide appropriate
-credentials and network access for the deployment to succeed. See the
-[Braket documentation](https://docs.aws.amazon.com/braket/latest/developerguide/)
+The random byte is fetched from AWS KMS using the `GenerateRandom` API. Ensure
+your credentials permit this call. See the
+[KMS documentation](https://docs.aws.amazon.com/kms/latest/APIReference/)
 for further details.

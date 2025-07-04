@@ -59,6 +59,24 @@ class LocalBackend:
         return digest[:1]
 
 
+@dataclass
+class KmsBackend:
+    """Backend fetching one byte from AWS KMS."""
+
+    kms_client: object | None = None
+
+    def __post_init__(self) -> None:
+        if self.kms_client is None:
+            import boto3  # type: ignore
+
+            self.kms_client = boto3.client("kms")
+
+    def run(self, _seed: bytes) -> bytes:
+        if self.kms_client is None:  # pragma: no cover - defensive
+            raise RuntimeError("KMS client not initialized")
+        return self.kms_client.generate_random(NumberOfBytes=1)["Plaintext"]
+
+
 def hash_password(
     password: str,
     salt: bytes,
@@ -133,10 +151,7 @@ def lambda_handler(event: dict, _ctx) -> dict:
     key = hashlib.sha256(seed).hexdigest()
 
     def _producer():
-        braket = boto3.client("braket")
-        job = braket.search_jobs(maxResults=1)["jobs"][0]
-        digest = hashlib.sha512(job["device"] + seed).digest()
-        return digest[:1]
+        return kms.generate_random(NumberOfBytes=1)["Plaintext"]
 
     quantum_byte = cache.get_or_set(key, 120, _producer)
 
