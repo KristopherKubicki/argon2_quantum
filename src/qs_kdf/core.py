@@ -90,8 +90,12 @@ class BraketBackend:
 
         circuit = Circuit().h(range(8)).measure(range(8))
         result_bytes = bytearray()
-        for _ in range(self.num_bytes):
-            task = self.device.run(circuit, shots=1)
+        base_seed = int.from_bytes(hashlib.sha256(_seed).digest()[:4], "big")
+        for i in range(self.num_bytes):
+            try:
+                task = self.device.run(circuit, shots=1, rng_seed=base_seed + i)
+            except TypeError:
+                task = self.device.run(circuit, shots=1)
             result = task.result()
             bits = next(iter(result.measurement_counts))
             result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
