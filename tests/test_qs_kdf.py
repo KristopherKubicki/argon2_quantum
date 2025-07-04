@@ -1,8 +1,8 @@
 import contextlib
 import importlib
 import io
-import time
 import sys
+import time
 import types
 
 import qs_kdf
@@ -110,4 +110,54 @@ def test_braket_backend(monkeypatch):
 
     backend = qs_kdf.BraketBackend(device=FakeDevice("01000010"))
     result = backend.run(b"seed")
+    assert result == b"\x42"
+
+
+def test_braket_backend_custom_arn(monkeypatch):
+    class FakeCircuit:
+        def h(self, *args, **kwargs):
+            return self
+
+        def measure(self, *args, **kwargs):
+            return self
+
+    class FakeResult:
+        def __init__(self, bits: str) -> None:
+            self.measurement_counts = {bits: 1}
+
+    class FakeTask:
+        def __init__(self, bits: str) -> None:
+            self._bits = bits
+
+        def result(self):
+            return FakeResult(self._bits)
+
+    class FakeDevice:
+        def __init__(self, bits: str) -> None:
+            self.bits = bits
+
+        def run(self, circuit, shots: int):
+            assert shots == 1
+            return FakeTask(self.bits)
+
+    called = {}
+
+    def fake_aws_device(arn: str):
+        called["arn"] = arn
+        return FakeDevice("01000010")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.aws",
+        types.SimpleNamespace(AwsDevice=fake_aws_device),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.circuits",
+        types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
+    )
+
+    backend = qs_kdf.BraketBackend(device_arn="arn:custom")
+    result = backend.run(b"seed")
+    assert called["arn"] == "arn:custom"
     assert result == b"\x42"

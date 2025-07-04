@@ -61,9 +61,15 @@ class LocalBackend:
 
 @dataclass
 class BraketBackend:
-    """Backend fetching one byte from AWS Braket."""
+    """Backend fetching one byte from AWS Braket.
+
+    Args:
+        device: Optional preconfigured device instance.
+        device_arn: Optional device ARN. Defaults to Amazon SV1.
+    """
 
     device: Any | None = None
+    device_arn: str | None = None
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
         if self.device is None:
@@ -72,9 +78,11 @@ class BraketBackend:
             except Exception:  # pragma: no cover - optional
                 self.device = None
             else:
-                self.device = AwsDevice(
-                    "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+                arn = (
+                    self.device_arn
+                    or "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
                 )
+                self.device = AwsDevice(arn)
 
     def run(self, _seed: bytes) -> bytes:
         if self.device is None:
@@ -140,12 +148,13 @@ class RedisCache:
         return value
 
 
-def lambda_handler(event: dict, _ctx) -> dict:
+def lambda_handler(event: dict, _ctx, device_arn: str | None = None) -> dict:
     """Handle Argon2id hashing request via AWS Lambda.
 
     Args:
         event: Invocation payload containing "salt" and "password".
         _ctx: Lambda context object (unused).
+        device_arn: Optional device ARN. Defaults to Amazon SV1.
 
     Returns:
         dict: Response with hex digest under "digest".
@@ -172,7 +181,9 @@ def lambda_handler(event: dict, _ctx) -> dict:
     seed = bytes.fromhex(salt_hex)
     key = hashlib.sha256(seed).hexdigest()
 
-    device = AwsDevice("arn:aws:braket:::device/quantum-simulator/amazon/sv1")
+    device = AwsDevice(
+        device_arn or "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+    )
     circuit = Circuit().h(range(8)).measure(range(8))
 
     def _producer():
