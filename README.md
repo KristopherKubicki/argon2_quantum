@@ -1,5 +1,7 @@
 # Argon2 Quantum
 
+![Coverage](coverage.svg)
+
 This project demonstrates a toy "quantum" pre-hash followed by a classic
 memory-hard KDF. The quantum step is simulated and **not** real security.
 

@@ -23,6 +23,23 @@ jobs:
           pip install pytest coverage
           coverage run -m pytest
           coverage xml
+      - name: Coverage Badge
+        run: |
+          pip install coverage-badge
+          coverage-badge -o coverage.svg -f
+      - name: Fail if coverage <70%
+        run: |
+          rate=$(python - <<'PY'
+import xml.etree.ElementTree as ET
+rate=float(ET.parse('coverage.xml').getroot().get('line-rate'))*100
+print(int(rate))
+PY
+          )
+          echo "Coverage ${rate}%"
+          if [ "$rate" -lt 70 ]; then
+            echo "Coverage below threshold"
+            exit 1
+          fi
       - name: Terraform Validate
         run: terraform validate terraform
         continue-on-error: true
