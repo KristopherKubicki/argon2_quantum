@@ -21,6 +21,16 @@ python -m qs_kdf verify mypassword --salt deadbeefcafebabe --digest <hex>
 For an overview of the approach and deployment tips see the documents in
 [`docs/`](docs/).
 
+## Container Usage
+
+Build the Docker image and run the CLI via the bundled entry point:
+
+```bash
+docker build -t qsargon2 .
+docker run --rm qsargon2 hash mypassword --salt deadbeefcafebabe
+```
+
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for
