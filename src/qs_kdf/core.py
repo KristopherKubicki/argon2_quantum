@@ -2,8 +2,8 @@ import base64
 import hashlib
 import os
 import secrets
-from dataclasses import dataclass
-from typing import Any, Protocol
+from dataclasses import dataclass 
+from typing import Any, Callable, Protocol
 
 _warmed_up = False
 
@@ -120,7 +120,7 @@ class RedisCache:
     def __init__(self, client):
         self.client = client
 
-    def get_or_set(self, key: str, ttl: int, producer) -> bytes:
+    def get_or_set(self, key: str, ttl: int, producer: Callable[[], bytes]) -> bytes:
         cached = self.client.get(key)
         if cached:
             return cached
