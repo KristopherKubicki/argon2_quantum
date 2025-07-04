@@ -18,6 +18,8 @@ jobs:
           pip install -r requirements.txt
       - name: Ruff
         run: ruff check .
+      - name: Mypy
+        run: mypy qs_kdf qsargon2.py
       - name: Tests
         run: |
           pip install pytest coverage

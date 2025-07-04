@@ -1,5 +1,6 @@
 qiskit
 argon2-cffi
 ruff
+mypy
 boto3
 redis

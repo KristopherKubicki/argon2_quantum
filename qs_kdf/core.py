@@ -3,7 +3,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Callable, Protocol, runtime_checkable
 
 _warmed_up = False
 
@@ -25,8 +25,25 @@ def _warm_up() -> None:
     _warmed_up = True
 
 
+@runtime_checkable
+class _HashSecretRaw(Protocol):
+    def __call__(
+        self,
+        password: bytes,
+        salt: bytes,
+        time_cost: int,
+        memory_cost: int,
+        parallelism: int,
+        hash_len: int,
+        type: int,
+        *,
+        secret: bytes | None = None,
+    ) -> bytes: ...
+
+
 try:
-    from argon2.low_level import Type, hash_secret_raw  # type: ignore
+    from argon2.low_level import Type, hash_secret_raw as _argon_hash_secret_raw  # type: ignore
+    hash_secret_raw: _HashSecretRaw = _argon_hash_secret_raw
 except Exception:  # pragma: no cover - optional
 
     class Type:  # type: ignore[no-redef]
@@ -99,19 +116,19 @@ def verify_password(
 
 
 class RedisCache:
-    def __init__(self, client):
+    def __init__(self, client: Any) -> None:
         self.client = client
 
-    def get_or_set(self, key: str, ttl: int, producer) -> bytes:
+    def get_or_set(self, key: str, ttl: int, producer: Callable[[], bytes]) -> bytes:
         cached = self.client.get(key)
         if cached:
-            return cached
+            return bytes(cached)
         value = producer()
         self.client.setex(key, ttl, value)
         return value
 
 
-def lambda_handler(event: dict, _ctx) -> dict:
+def lambda_handler(event: dict[str, str], _ctx: object) -> dict[str, str]:
     import boto3  # type: ignore
     import redis  # type: ignore
 
@@ -132,7 +149,7 @@ def lambda_handler(event: dict, _ctx) -> dict:
     seed = bytes.fromhex(salt_hex)
     key = hashlib.sha256(seed).hexdigest()
 
-    def _producer():
+    def _producer() -> bytes:
         braket = boto3.client("braket")
         job = braket.search_jobs(maxResults=1)["jobs"][0]
         digest = hashlib.sha512(job["device"] + seed).digest()
