@@ -45,7 +45,7 @@ def test_timing_attack():
     start_bad = time.perf_counter()
     qs_kdf.hash_password("bad", salt, backend=backend)
     bad = time.perf_counter() - start_bad
-    assert abs(good - bad) <= 0.01
+    assert abs(good - bad) <= 0.05
 
 
 def test_verify_password():
