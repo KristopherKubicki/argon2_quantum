@@ -3,6 +3,12 @@
 This guide walks through hashing and verifying a password with the simulated
 quantum stretch. A Python 3.10+ environment is required.
 
+## Prerequisites
+
+- An AWS account with permissions to deploy resources.
+- [AWS CLI](https://docs.aws.amazon.com/cli/) installed and configured with
+  IAM credentials.
+
 ## Installation
 
 ```bash
@@ -15,8 +21,10 @@ pip install -r requirements.txt
 python -m qs_kdf hash "hunter2" --salt 0011223344556677
 ```
 
-Pass `--cloud` to route the request through the Lambda handler. In this demo it
-returns a fixed value but shows how the API would be used in production.
+By default the command uses a local simulator backend and requires no AWS
+connectivity. Pass `--cloud` to route the request through the Lambda handler.
+In this demo it returns a fixed value but shows how the API would be used in
+production.
 
 ## Verify a Password
 
@@ -28,13 +36,20 @@ python -m qs_kdf verify "hunter2" --salt 0011223344556677 --digest <hex>
 
 ## Deploying the Lambda
 
-The `infra` directory contains an AWS CDK stack that provisions the Lambda,
-KMS key and Redis cache. Deploy with:
+The stack defined in [`infra/qs_kdf_stack.py`](../infra/qs_kdf_stack.py)
+provisions the Lambda, KMS key and Redis cache. Deploy with:
 
 ```bash
-cd infra
-cdk deploy
+cd infra && cdk deploy
+```
+
+Alternatively run:
+
+```bash
+terraform -chdir=terraform apply
 ```
 
 The placeholder quantum step calls AWS Braket. You must provide appropriate
-credentials and network access for the deployment to succeed.
+credentials and network access for the deployment to succeed. See the
+[Braket documentation](https://docs.aws.amazon.com/braket/latest/developerguide/)
+for further details.

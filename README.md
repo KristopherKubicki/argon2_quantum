@@ -1,9 +1,14 @@
 # Argon2 Quantum
 
-This project demonstrates a toy "quantum" pre-hash followed by a classic
-memory-hard KDF. The quantum step is simulated and **not** real security.
+This project demonstrates a simulated "quantum" pre-hash followed by a classic
+memory-hard KDF. The quantum step is emulated and **not** real security.
 
 ## Getting Started
+
+### Prerequisites
+
+- An AWS account with permissions to create Lambda, KMS and Braket resources via CDK or Terraform.
+- Configured IAM credentials using the [AWS CLI](https://docs.aws.amazon.com/cli/).
 
 Install dependencies and run the CLI to hash a password with a hex salt:
 
@@ -18,7 +23,23 @@ The output digest can later be verified with the `verify` subcommand:
 python -m qs_kdf verify mypassword --salt deadbeefcafebabe --digest <hex>
 ```
 
-For an overview of the approach and deployment tips see the documents in
+Running without `--cloud` keeps all computation local using the built-in
+simulator backend.
+
+The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) can be deployed
+with a single command:
+
+```bash
+cd infra && cdk deploy
+```
+
+or using Terraform:
+
+```bash
+terraform -chdir=terraform apply
+```
+
+For an overview of the approach and more deployment tips see the documents in
 [`docs/`](docs/).
 
 ## License
