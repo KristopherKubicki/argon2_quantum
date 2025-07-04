@@ -4,6 +4,22 @@ from __future__ import annotations
 
 import base64
 import hashlib
+try:
+    from argon2.low_level import Type, hash_secret_raw
+except Exception:  # pragma: no cover - optional fallback
+    class Type:  # type: ignore[no-redef]
+        ID = 2
+
+    def hash_secret_raw(
+        password: bytes,
+        salt: bytes,
+        time_cost: int,
+        memory_cost: int,
+        parallelism: int,
+        hash_len: int,
+        type: int,
+    ) -> bytes:
+        return hashlib.scrypt(password, salt=salt, n=2**14, r=8, p=parallelism, dklen=hash_len)
 import secrets
 from typing import Optional
 
@@ -22,7 +38,7 @@ def hash_password(
     salt: Optional[bytes] = None,
     pepper: bytes = PEPPER,
 ) -> bytes:
-    """Hash ``password`` using qstretch + scrypt.
+    """Hash ``password`` using qstretch + Argon2id.
 
     Args:
         password: Raw password string.
@@ -35,7 +51,15 @@ def hash_password(
     if salt is None:
         salt = secrets.token_bytes(16)
     pre = qstretch(password, salt, pepper)
-    digest = hashlib.scrypt(pre, salt=salt, n=2**14, r=8, p=1, dklen=32)
+    digest = hash_secret_raw(
+        pre,
+        salt,
+        time_cost=2,
+        memory_cost=16_384,
+        parallelism=1,
+        hash_len=32,
+        type=Type.ID,
+    )
     return digest
 
 
