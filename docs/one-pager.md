@@ -1,7 +1,10 @@
 # Quantum Stretch KDF Overview
 
-Quantum layer increases current offline cracking cost ~1 000×; not a full
-post-quantum guarantee once fault-tolerant QPUs exist.
+The quantum step adds a single byte from a quantum-inspired service to the
+Argon2 salt. This increases the offline cracking cost by forcing attackers to
+replicate the service call for each guess. It is not a post‑quantum scheme—once
+large fault-tolerant QPUs exist the advantage disappears.
 
-Migration path uses a two-hash approach so the quantum call can be removed later
-without forcing user password resets.
+A two-hash migration stores both the classical digest and the quantum-extended
+version. The extra step can later be removed without requiring all users to
+reset their passwords.

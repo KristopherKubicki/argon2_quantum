@@ -3,7 +3,8 @@
 ## Cache Keys
 
 Redis keys derive from `sha256(salt)` with a 120s TTL. Cached quantum bytes
-avoid repeated Braket calls.
+avoid repeated Braket calls. The cache window slightly reduces entropy but keeps
+latency acceptable for interactive logins.
 
 ## Failure Modes
 
