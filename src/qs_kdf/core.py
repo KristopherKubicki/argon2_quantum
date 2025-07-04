@@ -3,7 +3,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, Any
 
 _warmed_up = False
 
@@ -63,7 +63,7 @@ class LocalBackend:
 class KmsBackend:
     """Backend fetching one byte from AWS KMS."""
 
-    kms_client: object | None = None
+    kms_client: Any | None = None
 
     def __post_init__(self) -> None:
         if self.kms_client is None:
