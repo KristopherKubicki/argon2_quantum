@@ -4,12 +4,17 @@ This project demonstrates a quantum inspired pre-hash using a random byte
 retrieved from AWS KMS followed by a classic memory-hard KDF. The quantum step
 is implemented via the `GenerateRandom` API to show a true service call.
 
+> **Security Notice**
+> 
+> The approach only raises the cost of classical offline attacks. It does
+> **not** provide post-quantum security.
+
 ## ELI5
 
 Imagine you want to lock your cookie jar with a secret code. This project adds
 a tiny piece of random "sprinkle" from the cloud before scrambling the code
-with Argon2. That extra sprinkle makes it much harder for someone else to guess
-your password, even with big computers.
+with Argon2. The sprinkle slows down classical attackers but offers no
+resistance once quantum computers arrive.
 
 ## Getting Started
 
