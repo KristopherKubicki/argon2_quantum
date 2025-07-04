@@ -1,8 +1,8 @@
 # Argon2 Quantum
 
 This project demonstrates a quantum inspired pre-hash using a random byte
-retrieved from AWS KMS followed by a classic memory-hard KDF. The quantum step
-is implemented via the `GenerateRandom` API to show a true service call.
+retrieved from AWS Braket followed by a classic memory-hard KDF. The quantum
+step executes a simple circuit on the managed simulator.
 
 ## ELI5
 

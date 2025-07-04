@@ -52,7 +52,7 @@ Alternatively run:
 terraform -chdir=terraform apply
 ```
 
-The random byte is fetched from AWS KMS using the `GenerateRandom` API. Ensure
-your credentials permit this call. See the
-[KMS documentation](https://docs.aws.amazon.com/kms/latest/APIReference/)
+The random byte is fetched from AWS Braket by running a tiny circuit. Ensure
+your credentials permit Braket execution. See the
+[Braket documentation](https://docs.aws.amazon.com/braket/)
 for further details.

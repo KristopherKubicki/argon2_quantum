@@ -4,3 +4,4 @@ ruff
 boto3
 redis
 pytest-cov
+amazon-braket-sdk

@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import sys
+import types
 
 import pytest
 
@@ -16,22 +17,47 @@ class DummyBackend:
 
 
 class FakeKMS:
-    def __init__(self, quantum: bytes, pepper: bytes, cipher: bytes) -> None:
-        self.quantum = quantum
+    def __init__(self, pepper: bytes, cipher: bytes) -> None:
         self.pepper = pepper
         self.cipher = cipher
         self.decrypt_called = 0
-        self.random_called = 0
 
     def decrypt(self, KeyId: str, CiphertextBlob: bytes):
         self.decrypt_called += 1
         assert CiphertextBlob == self.cipher
         return {"Plaintext": self.pepper}
 
-    def generate_random(self, NumberOfBytes: int):
-        self.random_called += 1
-        assert NumberOfBytes == 1
-        return {"Plaintext": self.quantum}
+
+class FakeResult:
+    def __init__(self, bits: str) -> None:
+        self.measurement_counts = {bits: 1}
+
+
+class FakeTask:
+    def __init__(self, bits: str) -> None:
+        self._bits = bits
+
+    def result(self):
+        return FakeResult(self._bits)
+
+
+class FakeBraketDevice:
+    def __init__(self, bits: str) -> None:
+        self.bits = bits
+        self.run_calls = 0
+
+    def run(self, circuit, shots: int):
+        self.run_calls += 1
+        assert shots == 1
+        return FakeTask(self.bits)
+
+
+class FakeCircuit:
+    def h(self, *args, **kwargs):
+        return self
+
+    def measure(self, *args, **kwargs):
+        return self
 
 
 class FakeBoto3:
@@ -83,24 +109,38 @@ def _expected_digest(
     return digest.hex()
 
 
-def _setup_modules(monkeypatch, kms: FakeKMS, redis_client: FakeRedisClient) -> None:
+def _setup_modules(
+    monkeypatch, kms: FakeKMS, redis_client: FakeRedisClient, device: FakeBraketDevice
+) -> None:
     monkeypatch.setitem(sys.modules, "boto3", FakeBoto3(kms))
     monkeypatch.setitem(sys.modules, "redis", FakeRedisModule(redis_client))
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.aws",
+        types.SimpleNamespace(AwsDevice=lambda arn: device),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.circuits",
+        types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
+    )
 
 
 def test_lambda_handler_cache_miss(monkeypatch, _env):
     quantum = b"\xaa"
     pepper = b"pepper"
-    kms = FakeKMS(quantum, pepper, b"cipher")
+    kms = FakeKMS(pepper, b"cipher")
+    device = FakeBraketDevice("10101010")
     redis_client = FakeRedisClient()
-    _setup_modules(monkeypatch, kms, redis_client)
+    _setup_modules(monkeypatch, kms, redis_client, device)
 
     event = {"password": "pw", "salt": "00" * 16}
     result = lambda_handler(event, None)
 
     assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
     assert kms.decrypt_called == 1
-    assert kms.random_called == 1
+    assert device.run_calls == 1
     assert redis_client.set_calls
 
 
@@ -109,22 +149,24 @@ def test_lambda_handler_cache_hit(monkeypatch, _env):
     pepper = b"pepper"
     key = hashlib.sha256(bytes.fromhex("11" * 16)).hexdigest()
     redis_client = FakeRedisClient({key: quantum})
-    kms = FakeKMS(quantum, pepper, b"cipher")
-    _setup_modules(monkeypatch, kms, redis_client)
+    kms = FakeKMS(pepper, b"cipher")
+    device = FakeBraketDevice("01000010")
+    _setup_modules(monkeypatch, kms, redis_client, device)
 
     event = {"password": "pw", "salt": "11" * 16}
     result = lambda_handler(event, None)
 
     assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
-    assert kms.random_called == 0
+    assert device.run_calls == 0
     assert not redis_client.set_calls
 
 
 @pytest.mark.parametrize("var", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
 def test_lambda_handler_missing_env(monkeypatch, var, _env):
     redis_client = FakeRedisClient()
-    kms = FakeKMS(b"\x00", b"pepper", b"cipher")
-    _setup_modules(monkeypatch, kms, redis_client)
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    _setup_modules(monkeypatch, kms, redis_client, device)
 
     monkeypatch.delenv(var, raising=False)
     with pytest.raises(KeyError):

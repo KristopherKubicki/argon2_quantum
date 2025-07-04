@@ -1,6 +1,6 @@
 # Quantum Stretch KDF Overview
 
-The quantum step adds a single byte from AWS KMS to the Argon2 salt. This
+The quantum step adds a single byte from AWS Braket to the Argon2 salt. This
 increases the offline cracking cost by forcing attackers to replicate the
 service call for each guess. It is not a post‑quantum scheme—once large
 fault-tolerant QPUs exist the advantage disappears.
