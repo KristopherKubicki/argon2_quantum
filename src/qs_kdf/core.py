@@ -88,7 +88,7 @@ def hash_password(
     if backend is None:
         backend = LocalBackend()
     if pepper is None:
-        pepper = b"fixedPepper32B01234567890123"
+        pepper = b"fixedPepper32B012345678901234567"
     pre = hashlib.sha512(password.encode() + salt + pepper).digest()
     quantum = backend.run(pre)
     new_salt = salt + quantum
