@@ -56,9 +56,10 @@ class Backend(Protocol):
 
 @dataclass
 class LocalBackend:
-    def run(self, seed: bytes) -> bytes:
-        digest = hashlib.sha512(seed).digest()
-        return digest[:1]
+    def run(self, _seed: bytes) -> bytes:
+        """Return a secure random byte."""
+
+        return secrets.token_bytes(1)
 
 
 @dataclass

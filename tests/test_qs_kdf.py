@@ -58,8 +58,9 @@ def test_verify_password():
     assert not qs_kdf.verify_password("bad", salt, digest, backend=backend)
 
 
-def test_cli_verify():
-    backend = qs_kdf.LocalBackend()
+def test_cli_verify(monkeypatch):
+    monkeypatch.setattr(cli_module, "LocalBackend", qs_kdf.TestBackend)
+    backend = qs_kdf.TestBackend()
     salt = b"\x04" * 16
     digest = qs_kdf.hash_password("pw", salt, backend=backend)
     out = _run_cli(
