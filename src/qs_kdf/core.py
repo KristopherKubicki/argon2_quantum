@@ -3,7 +3,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Callable, Protocol
 
 _warmed_up = False
 
@@ -63,7 +63,7 @@ class LocalBackend:
 class KmsBackend:
     """Backend fetching one byte from AWS KMS."""
 
-    kms_client: object | None = None
+    kms_client: Any | None = None
 
     def __post_init__(self) -> None:
         if self.kms_client is None:
@@ -120,7 +120,7 @@ class RedisCache:
     def __init__(self, client):
         self.client = client
 
-    def get_or_set(self, key: str, ttl: int, producer) -> bytes:
+    def get_or_set(self, key: str, ttl: int, producer: Callable[[], bytes]) -> bytes:
         cached = self.client.get(key)
         if cached:
             return cached
