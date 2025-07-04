@@ -2,7 +2,7 @@
 
 from .cli import main as cli
 from .core import (
-    KmsBackend,
+    BraketBackend,
     LocalBackend,
     hash_password,
     lambda_handler,
@@ -17,5 +17,5 @@ __all__ = [
     "hash_password",
     "verify_password",
     "LocalBackend",
-    "KmsBackend",
+    "BraketBackend",
 ]

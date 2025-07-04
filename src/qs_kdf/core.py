@@ -2,7 +2,7 @@ import base64
 import hashlib
 import os
 import secrets
-from dataclasses import dataclass 
+from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
 _warmed_up = False
@@ -60,21 +60,32 @@ class LocalBackend:
 
 
 @dataclass
-class KmsBackend:
-    """Backend fetching one byte from AWS KMS."""
+class BraketBackend:
+    """Backend fetching one byte from AWS Braket."""
 
-    kms_client: Any | None = None
+    device: Any | None = None
 
-    def __post_init__(self) -> None:
-        if self.kms_client is None:
-            import boto3  # type: ignore
-
-            self.kms_client = boto3.client("kms")
+    def __post_init__(self) -> None:  # pragma: no cover - import guard
+        if self.device is None:
+            try:
+                from braket.aws import AwsDevice  # type: ignore
+            except Exception:  # pragma: no cover - optional
+                self.device = None
+            else:
+                self.device = AwsDevice(
+                    "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+                )
 
     def run(self, _seed: bytes) -> bytes:
-        if self.kms_client is None:  # pragma: no cover - defensive
-            raise RuntimeError("KMS client not initialized")
-        return self.kms_client.generate_random(NumberOfBytes=1)["Plaintext"]
+        if self.device is None:
+            return LocalBackend().run(_seed)
+        from braket.circuits import Circuit  # type: ignore
+
+        circuit = Circuit().h(range(8)).measure(range(8))
+        task = self.device.run(circuit, shots=1)
+        result = task.result()
+        bits = next(iter(result.measurement_counts))
+        return int(bits, 2).to_bytes(1, "big")
 
 
 def hash_password(
@@ -141,6 +152,8 @@ def lambda_handler(event: dict, _ctx) -> dict:
     """
     import boto3  # type: ignore
     import redis  # type: ignore
+    from braket.aws import AwsDevice  # type: ignore
+    from braket.circuits import Circuit  # type: ignore
 
     salt_hex = event["salt"]
     password = event["password"]
@@ -159,8 +172,14 @@ def lambda_handler(event: dict, _ctx) -> dict:
     seed = bytes.fromhex(salt_hex)
     key = hashlib.sha256(seed).hexdigest()
 
+    device = AwsDevice("arn:aws:braket:::device/quantum-simulator/amazon/sv1")
+    circuit = Circuit().h(range(8)).measure(range(8))
+
     def _producer():
-        return kms.generate_random(NumberOfBytes=1)["Plaintext"]
+        task = device.run(circuit, shots=1)
+        result = task.result()
+        bits = next(iter(result.measurement_counts))
+        return int(bits, 2).to_bytes(1, "big")
 
     quantum_byte = cache.get_or_set(key, 120, _producer)
 
