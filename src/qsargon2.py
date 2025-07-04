@@ -6,20 +6,10 @@ import base64
 import hashlib
 try:
     from argon2.low_level import Type, hash_secret_raw
-except Exception:  # pragma: no cover - optional fallback
-    class Type:  # type: ignore[no-redef]
-        ID = 2
-
-    def hash_secret_raw(
-        password: bytes,
-        salt: bytes,
-        time_cost: int,
-        memory_cost: int,
-        parallelism: int,
-        hash_len: int,
-        type: int,
-    ) -> bytes:
-        return hashlib.scrypt(password, salt=salt, n=2**14, r=8, p=parallelism, dklen=hash_len)
+except Exception as exc:  # pragma: no cover - enforce dependency
+    raise ImportError(
+        "argon2-cffi must be installed; run 'pip install argon2-cffi'"
+    ) from exc
 import secrets
 from typing import Optional
 
