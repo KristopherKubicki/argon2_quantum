@@ -5,6 +5,8 @@ import secrets
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
+from .constants import PEPPER
+
 _warmed_up = False
 
 
@@ -107,7 +109,7 @@ def hash_password(
     if backend is None:
         backend = LocalBackend()
     if pepper is None:
-        pepper = b"fixedPepper32B012345678901234567"
+        pepper = PEPPER
     pre = hashlib.sha512(password.encode() + salt + pepper).digest()
     quantum = backend.run(pre)
     new_salt = salt + quantum
