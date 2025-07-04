@@ -1,11 +1,33 @@
 import base64
 import hashlib
+import importlib
 import sys
 import types
 
 import pytest
 
-from qs_kdf.core import hash_password, lambda_handler
+
+def _fake_hash_secret_raw(
+    pw, salt, time_cost, memory_cost, parallelism, hash_len, type, *, secret=None
+):
+    return hashlib.scrypt(
+        pw if secret is None else pw + secret,
+        salt=salt,
+        n=2**14,
+        r=8,
+        p=parallelism,
+        dklen=hash_len,
+    )
+
+
+def _load_core(monkeypatch):
+    stub = types.SimpleNamespace(
+        Type=types.SimpleNamespace(ID=2),
+        hash_secret_raw=_fake_hash_secret_raw,
+    )
+    monkeypatch.setitem(sys.modules, "argon2.low_level", stub)
+    core = importlib.import_module("qs_kdf.core")
+    return core.hash_password, core.lambda_handler
 
 
 class DummyBackend:
@@ -100,10 +122,10 @@ def _env(monkeypatch):
 
 
 def _expected_digest(
-    password: str, salt_hex: str, pepper: bytes, quantum: bytes
+    hash_password_fn, password: str, salt_hex: str, pepper: bytes, quantum: bytes
 ) -> str:
     backend = DummyBackend(quantum)
-    digest = hash_password(
+    digest = hash_password_fn(
         password, bytes.fromhex(salt_hex), backend=backend, pepper=pepper
     )
     return digest.hex()
@@ -128,6 +150,7 @@ def _setup_modules(
 
 
 def test_lambda_handler_cache_miss(monkeypatch, _env):
+    hash_password, lambda_handler = _load_core(monkeypatch)
     quantum = b"\xaa"
     pepper = b"pepper"
     kms = FakeKMS(pepper, b"cipher")
@@ -138,13 +161,16 @@ def test_lambda_handler_cache_miss(monkeypatch, _env):
     event = {"password": "pw", "salt": "00" * 16}
     result = lambda_handler(event, None)
 
-    assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
+    assert result["digest"] == _expected_digest(
+        hash_password, "pw", event["salt"], pepper, quantum
+    )
     assert kms.decrypt_called == 1
     assert device.run_calls == 1
     assert redis_client.set_calls
 
 
 def test_lambda_handler_cache_hit(monkeypatch, _env):
+    hash_password, lambda_handler = _load_core(monkeypatch)
     quantum = b"\x42"
     pepper = b"pepper"
     key = hashlib.sha256(bytes.fromhex("11" * 16)).hexdigest()
@@ -156,13 +182,16 @@ def test_lambda_handler_cache_hit(monkeypatch, _env):
     event = {"password": "pw", "salt": "11" * 16}
     result = lambda_handler(event, None)
 
-    assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
+    assert result["digest"] == _expected_digest(
+        hash_password, "pw", event["salt"], pepper, quantum
+    )
     assert device.run_calls == 0
     assert not redis_client.set_calls
 
 
 @pytest.mark.parametrize("var", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
 def test_lambda_handler_missing_env(monkeypatch, var, _env):
+    hash_password, lambda_handler = _load_core(monkeypatch)
     redis_client = FakeRedisClient()
     kms = FakeKMS(b"pepper", b"cipher")
     device = FakeBraketDevice("00000000")
