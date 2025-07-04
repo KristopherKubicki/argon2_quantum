@@ -3,7 +3,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 _warmed_up = False
 
@@ -63,7 +63,7 @@ class LocalBackend:
 class KmsBackend:
     """Backend fetching one byte from AWS KMS."""
 
-    kms_client: object | None = None
+    kms_client: Any | None = None
 
     def __post_init__(self) -> None:
         if self.kms_client is None:
@@ -130,6 +130,15 @@ class RedisCache:
 
 
 def lambda_handler(event: dict, _ctx) -> dict:
+    """Handle Argon2id hashing request via AWS Lambda.
+
+    Args:
+        event: Invocation payload containing "salt" and "password".
+        _ctx: Lambda context object (unused).
+
+    Returns:
+        dict: Response with hex digest under "digest".
+    """
     import boto3  # type: ignore
     import redis  # type: ignore
 
