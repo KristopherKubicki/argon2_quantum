@@ -55,6 +55,7 @@ class Backend(Protocol):
 @dataclass
 class LocalBackend:
     def run(self, seed: bytes) -> bytes:
+        """Return first byte of ``SHA-512`` digest of ``seed``."""
         digest = hashlib.sha512(seed).digest()
         return digest[:1]
 
@@ -66,15 +67,17 @@ class KmsBackend:
     kms_client: object | None = None
 
     def __post_init__(self) -> None:
+        """Instantiate boto3 KMS client if missing."""
         if self.kms_client is None:
             import boto3  # type: ignore
 
             self.kms_client = boto3.client("kms")
 
     def run(self, _seed: bytes) -> bytes:
+        """Return one random byte from KMS."""
         if self.kms_client is None:  # pragma: no cover - defensive
             raise RuntimeError("KMS client not initialized")
-        return self.kms_client.generate_random(NumberOfBytes=1)["Plaintext"]
+        return self.kms_client.generate_random(NumberOfBytes=1)["Plaintext"]  # type: ignore[attr-defined]
 
 
 def hash_password(
@@ -118,9 +121,11 @@ def verify_password(
 
 class RedisCache:
     def __init__(self, client):
+        """Create cache wrapper for ``client``."""
         self.client = client
 
     def get_or_set(self, key: str, ttl: int, producer) -> bytes:
+        """Return cached value or set it using ``producer``."""
         cached = self.client.get(key)
         if cached:
             return cached
@@ -130,6 +135,15 @@ class RedisCache:
 
 
 def lambda_handler(event: dict, _ctx) -> dict:
+    """Handle AWS Lambda request and return digest dictionary.
+
+    Args:
+        event: Event payload with ``password`` and hex ``salt``.
+        _ctx: Lambda context object (unused).
+
+    Returns:
+        Mapping with ``digest`` hex string.
+    """
     import boto3  # type: ignore
     import redis  # type: ignore
 

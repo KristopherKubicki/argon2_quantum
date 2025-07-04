@@ -4,6 +4,14 @@ from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Execute the command-line interface.
+
+    Args:
+        argv: Optional list of arguments.
+
+    Returns:
+        Process exit code.
+    """
     parser = argparse.ArgumentParser(prog="qs_kdf")
     sub = parser.add_subparsers(dest="cmd", required=True)
     h = sub.add_parser("hash")
