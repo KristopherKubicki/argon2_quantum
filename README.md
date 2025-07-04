@@ -13,7 +13,7 @@ memory-hard KDF. The quantum step is emulated and **not** real security.
 Install dependencies and run the CLI to hash a password with a hex salt:
 
 ```bash
-pip install -r requirements.txt
+pip install .
 python -m qs_kdf hash mypassword --salt deadbeefcafebabe
 ```
 

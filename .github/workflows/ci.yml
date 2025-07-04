@@ -15,7 +15,8 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install .
+          pip install ruff
           pip install -r infra/requirements.txt
       - name: Ruff
         run: ruff check .
