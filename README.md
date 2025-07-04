@@ -67,6 +67,15 @@ cdk synth
 
 Deploy the stack using `cdk deploy` when you're ready.
 
+## Dependency Management
+
+All Python packages are pinned in `requirements.txt` and `pyproject.toml`.
+When updating a dependency:
+
+1. Review the package's changelog and security notes.
+2. Modify the version in both files to match.
+3. Run `ruff`, `bandit` and the full test suite before submitting a PR.
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for

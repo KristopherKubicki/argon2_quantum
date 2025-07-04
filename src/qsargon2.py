@@ -19,7 +19,14 @@ except Exception:  # pragma: no cover - optional fallback
         hash_len: int,
         type: int,
     ) -> bytes:
-        return hashlib.scrypt(password, salt=salt, n=2**14, r=8, p=parallelism, dklen=hash_len)
+        return hashlib.scrypt(
+            password,
+            salt=salt,
+            n=2**14,
+            r=8,
+            p=parallelism,
+            dklen=hash_len,
+        )
 import secrets
 from typing import Optional
 

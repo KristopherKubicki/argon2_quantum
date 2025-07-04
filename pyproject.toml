@@ -10,11 +10,11 @@ readme = "README.md"
 authors = [{name = "Example", email = "example@example.com"}]
 requires-python = ">=3.10"
 dependencies = [
-    "qiskit",
-    "argon2-cffi",
-    "boto3",
-    "redis",
-    "amazon-braket-sdk",
+    "qiskit==1.0.0",
+    "argon2-cffi==23.1.0",
+    "boto3==1.34.86",
+    "redis==5.0.0",
+    "amazon-braket-sdk==1.78.3",
 ]
 
 [project.scripts]

@@ -1,7 +1,7 @@
-qiskit
-argon2-cffi
-ruff
-boto3
-redis
-pytest-cov
-amazon-braket-sdk
+qiskit==1.0.0
+argon2-cffi==23.1.0
+ruff==0.1.15
+boto3==1.34.86
+redis==5.0.0
+pytest-cov==4.1.0
+amazon-braket-sdk==1.78.3
