@@ -7,7 +7,7 @@ import hashlib
 import secrets
 from typing import Optional
 
-PEPPER = b"fixedPepper32B01234567890123"  # 24 bytes to keep example short
+PEPPER = b"fixedPepper32B01234567890123"  # 28 bytes to keep example short
 
 
 def _reverse_bits(value: int, bit_width: int) -> int:
