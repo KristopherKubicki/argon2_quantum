@@ -18,9 +18,9 @@ def _warm_up() -> None:
     hash_secret_raw(
         b"x",
         b"\x00" * 17,
-        time_cost=3,
-        memory_cost=262_144,
-        parallelism=4,
+        time_cost=2,
+        memory_cost=16_384,
+        parallelism=1,
         hash_len=32,
         type=Type.ID,
     )
@@ -102,9 +102,9 @@ def hash_password(
     digest = hash_secret_raw(
         password.encode(),
         new_salt,
-        time_cost=3,
-        memory_cost=262_144,
-        parallelism=4,
+        time_cost=2,
+        memory_cost=16_384,
+        parallelism=1,
         hash_len=32,
         type=Type.ID,
     )
