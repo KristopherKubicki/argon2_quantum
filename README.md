@@ -1,7 +1,7 @@
 # Argon2 Quantum
 
 [![CI](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml/badge.svg)](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/KristopherKubicki/argon2_quantum/branch/main/graph/badge.svg)](https://codecov.io/gh/KristopherKubicki/argon2_quantum)
+[![codecov](https://codecov.io/gh/KristopherKubicki/argon2_quantum/graph/badge.svg?token=JuPPmkMFxR)](https://codecov.io/gh/KristopherKubicki/argon2_quantum)
 
 This project demonstrates a quantum inspired pre-hash using ten random bytes
 retrieved from AWS Braket followed by a classic memory-hard KDF. The quantum
