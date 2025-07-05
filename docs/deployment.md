@@ -45,12 +45,14 @@ export KMS_KEY_ID=<kms-key-id>
 export PEPPER_CIPHERTEXT=<base64-ciphertext>
 export REDIS_HOST=<redis-endpoint>
 export REDIS_PORT=6379  # optional when using the default
+export REDIS_TLS=1      # disable with 0/false/no
 export REDIS_CERT_REQS=required  # none|optional|required
 ```
 
-``REDIS_CERT_REQS`` defaults to ``required``. Set it to ``none`` to skip
-certificate validation or ``optional`` to allow failures while keeping TLS
-enabled.
+``REDIS_TLS`` defaults to ``1`` and disabling it is discouraged.
+``REDIS_CERT_REQS`` defaults to ``required``. Setting ``none`` disables
+certificate validation and is unsafe outside tests. ``optional`` allows
+failures while keeping TLS enabled.
 
 For local testing omit `--cloud` and these variables are ignored. Running in
 cloud mode requires them to be present in the Lambda configuration or your
