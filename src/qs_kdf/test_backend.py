@@ -12,6 +12,9 @@ class TestBackend:
 
         Args:
             seed: Seed for deterministic randomness.
+
+        Returns:
+            None
         """
 
         self.random = random.Random(seed)  # nosec B311 - deterministic helper
