@@ -72,6 +72,8 @@ terraform -chdir=terraform apply
 More background is available in the documents under [`docs/`](docs/).
 See [docs/lambda-build.md](docs/lambda-build.md) for instructions on
 packaging the Lambda function.
+See [docs/deployment.md](docs/deployment.md) for AWS setup and
+deployment steps.
 
 ## Development
 Use Python 3.10 or newer. Install the hooks once:
