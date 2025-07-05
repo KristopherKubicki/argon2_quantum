@@ -24,11 +24,17 @@ def main(argv: list[str] | None = None) -> int:
     h.add_argument("password")
     h.add_argument("--salt")
     h.add_argument("--cloud", action="store_true")
+    h.add_argument("--time-cost", type=int, default=3)
+    h.add_argument("--memory-cost", type=int, default=262_144)
+    h.add_argument("--parallelism", type=int, default=4)
 
     v = sub.add_parser("verify")
     v.add_argument("password")
     v.add_argument("--salt", required=True)
     v.add_argument("--digest", required=True)
+    v.add_argument("--time-cost", type=int, default=3)
+    v.add_argument("--memory-cost", type=int, default=262_144)
+    v.add_argument("--parallelism", type=int, default=4)
 
     args = parser.parse_args(argv)
     if args.salt is None:
@@ -60,7 +66,14 @@ def main(argv: list[str] | None = None) -> int:
             digest_hex = response["digest"]
         else:
             backend = LocalBackend()
-            digest_hex = hash_password(args.password, salt, backend=backend).hex()
+            digest_hex = hash_password(
+                args.password,
+                salt,
+                backend=backend,
+                time_cost=args.time_cost,
+                memory_cost=args.memory_cost,
+                parallelism=args.parallelism,
+            ).hex()
         if args.salt is None:
             print(f"{salt_hex} {digest_hex}")
         else:
@@ -73,7 +86,15 @@ def main(argv: list[str] | None = None) -> int:
                 f"invalid hex value for --digest: {args.digest}"
             ) from exc
         backend = LocalBackend()
-        ok = verify_password(args.password, salt, digest, backend=backend)
+        ok = verify_password(
+            args.password,
+            salt,
+            digest,
+            backend=backend,
+            time_cost=args.time_cost,
+            memory_cost=args.memory_cost,
+            parallelism=args.parallelism,
+        )
         print("OK" if ok else "NOPE")
         return 0 if ok else 1
     return 0
