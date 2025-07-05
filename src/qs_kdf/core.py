@@ -317,9 +317,20 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
         "Plaintext"
     ]
 
-    r = redis.Redis(
-        host=os.environ["REDIS_HOST"], port=int(os.environ.get("REDIS_PORT", "6379"))
-    )
+    redis_opts = {
+        "host": os.environ["REDIS_HOST"],
+        "port": int(os.environ.get("REDIS_PORT", "6379")),
+    }
+
+    if os.environ.get("REDIS_PASSWORD"):
+        redis_opts["password"] = os.environ["REDIS_PASSWORD"]
+
+    tls_env = os.environ.get("REDIS_TLS", "").lower()
+    if tls_env in {"1", "true", "yes"}:
+        redis_opts["ssl"] = True
+        redis_opts["ssl_cert_reqs"] = None
+
+    r = redis.Redis(**redis_opts)
     cache = RedisCache(r)
     seed = bytes.fromhex(salt_hex)
     key = hashlib.sha256(seed).hexdigest()
