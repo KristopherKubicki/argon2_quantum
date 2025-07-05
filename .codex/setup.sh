@@ -6,14 +6,17 @@ export CODEX_ENV_PYTHON_VERSION="3.12"
 export CODEX_ENV_NODE_VERSION="20"
 source /opt/codex/setup_universal.sh
 
-python -m venv venv
+uv venv venv
 source venv/bin/activate
 
-PIP_ARGS="--no-index --find-links=/opt/wheels"
+UV_ARGS="--no-index --find-links=/opt/wheels"
 
-pip install ${PIP_ARGS} -r requirements.txt
-pip install ${PIP_ARGS} -r infra/requirements.txt
-pip install ${PIP_ARGS} -e .
-pip install ${PIP_ARGS} pre-commit
+uv pip install ${UV_ARGS} -r requirements.txt
+uv pip install ${UV_ARGS} -r infra/requirements.txt
+uv pip install ${UV_ARGS} -e .
+uv pip install ${UV_ARGS} pre-commit
+
+# Install the AWS CDK CLI for infrastructure checks
+npm install -g aws-cdk >/dev/null 2>&1 || true
 
 pre-commit install
