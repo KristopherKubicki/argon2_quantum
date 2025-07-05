@@ -143,7 +143,8 @@ def test_lambda_handler_cache_miss(monkeypatch, _env):
 
     assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
     assert kms.decrypt_called == 1
-    assert device.run_calls == 10
+    assert device.run_calls == 1
+    assert device.shots == [10]
     assert redis_client.set_calls
 
 

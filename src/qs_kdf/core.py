@@ -3,7 +3,8 @@ import hashlib
 import os
 import secrets
 import threading
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
 from .constants import PEPPER
@@ -13,7 +14,11 @@ _warm_up_lock = threading.Lock()
 
 
 def _warm_up() -> None:
-    """Preload Argon2 memory to stabilize runtime."""
+    """Preload Argon2 memory to stabilize runtime.
+
+    Returns:
+        None
+    """
     global _warmed_up
     if _warmed_up:
         return
@@ -62,7 +67,16 @@ class LocalBackend:
 
 
 def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
-    """Return 256-bit stretched digest using a double hash."""
+    """Return 256-bit digest from password, salt, and pepper.
+
+    Args:
+        password: Password string to stretch.
+        salt: Salt bytes used for the first hash.
+        pepper: Optional pepper value used in the hash.
+
+    Returns:
+        bytes: Final stretched digest.
+    """
     data = password.encode() + salt + pepper
     digest = hashlib.sha512(data).digest()
     return hashlib.sha256(digest).digest()
@@ -74,29 +88,60 @@ class BraketBackend:
 
     device: Any | None = None
     num_bytes: int = 10
+    _init_error: Exception | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
         """Create default ``AwsDevice`` when none is supplied.
 
-        ``self.device`` remains ``None`` when the SDK is missing and
-        :meth:`run` will raise a :class:`RuntimeError`.
+        Returns:
+            None
+
+        Notes:
+            ``self.device`` remains ``None`` when the SDK is missing and
+            :meth:`run` will raise :class:`RuntimeError`.
         """
 
         if self.device is None:
             try:
                 from braket.aws import AwsDevice  # type: ignore
+                from botocore.exceptions import NoCredentialsError  # type: ignore
+            except ImportError as exc:  # pragma: no cover - optional
+                logging.getLogger(__name__).error("Braket import failed: %s", exc)
+                self._init_error = exc
+                self.device = None
+                return
 
+            try:
                 self.device = AwsDevice(
                     "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
                 )
-            except Exception:  # pragma: no cover - optional
+            except NoCredentialsError as exc:  # pragma: no cover - optional
+                logging.getLogger(__name__).error("AWS credentials missing: %s", exc)
+                self._init_error = exc
+                self.device = None
+            except Exception as exc:  # pragma: no cover - optional
+                logging.getLogger(__name__).error("AwsDevice init failed: %s", exc)
+                self._init_error = exc
                 self.device = None
 
     def run(self, _seed: bytes) -> bytes:
-        """Return ``num_bytes`` random bytes from Braket."""
+        """Return ``num_bytes`` random bytes from Braket.
+
+        Args:
+            _seed: Ignored seed bytes.
+
+        Returns:
+            bytes: Random bytes fetched from the device.
+
+        Raises:
+            RuntimeError: If ``self.device`` is ``None``.
+        """
 
         if self.device is None:
-            raise RuntimeError("Braket backend unavailable")
+            msg = "Braket backend unavailable"
+            if self._init_error:
+                msg += f": {self._init_error}"
+            raise RuntimeError(msg)
 
         try:
             from braket.circuits import Circuit  # type: ignore
@@ -178,6 +223,9 @@ class RedisCache:
 
         Args:
             client: Redis client instance.
+
+        Returns:
+            None
         """
 
         self.client = client
@@ -211,7 +259,18 @@ class HashEvent:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "HashEvent":
-        """Return ``HashEvent`` built from ``data``."""
+        """Return ``HashEvent`` built from ``data``.
+
+        Args:
+            data: Mapping with keys ``"password"`` and ``"salt"``.
+
+        Returns:
+            HashEvent: Parsed event object.
+
+        Raises:
+            KeyError: If a required field is missing.
+            TypeError: If ``data`` is not a mapping or values are not strings.
+        """
         if not isinstance(data, Mapping):
             raise TypeError("event must be a mapping")
         try:
@@ -233,6 +292,10 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
 
     Returns:
         dict: Response with hex digest under "digest".
+
+    Raises:
+        KeyError: If ``event`` is missing required fields.
+        TypeError: If ``event`` is not a valid mapping or strings.
     """
     import boto3  # type: ignore
     import redis  # type: ignore
@@ -260,13 +323,12 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     device = AwsDevice("arn:aws:braket:::device/quantum-simulator/amazon/sv1")
     circuit = Circuit().h(range(8)).measure(range(8))
 
-    def _producer():
+    def _producer() -> bytes:
+        task = device.run(circuit, shots=10)
+        result = task.result()
         result_bytes = bytearray()
-        for _ in range(10):
-            task = device.run(circuit, shots=1)
-            result = task.result()
-            bits = next(iter(result.measurement_counts))
-            result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
+        for bits, count in result.measurement_counts.items():
+            result_bytes.extend(int(bits, 2).to_bytes(1, "big") * count)
         return bytes(result_bytes)
 
     quantum_bytes = cache.get_or_set(key, 120, _producer)

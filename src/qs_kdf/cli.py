@@ -1,6 +1,7 @@
 """Command-line interface for hashing and verifying passwords."""
 
 import argparse
+import os
 
 from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
@@ -36,6 +37,12 @@ def main(argv: list[str] | None = None) -> int:
         ) from exc
     if args.cmd == "hash":
         if args.cloud:
+            required = ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]
+            missing = [v for v in required if v not in os.environ]
+            if missing:
+                parser.error(
+                    "--cloud requires environment variables: " + ", ".join(missing)
+                )
             response = lambda_handler(
                 {"password": args.password, "salt": args.salt}, None
             )

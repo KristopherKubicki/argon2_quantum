@@ -66,6 +66,9 @@ def test_cli_output_cloud(monkeypatch):
         return {"digest": "deadbeef"}
 
     monkeypatch.setattr(cli_module, "lambda_handler", fake_handler)
+    monkeypatch.setenv("KMS_KEY_ID", "k")
+    monkeypatch.setenv("PEPPER_CIPHERTEXT", "c")
+    monkeypatch.setenv("REDIS_HOST", "r")
     out = _run_cli(["hash", "pw", "--salt", "01" * 16, "--cloud"])
     assert out == "deadbeef"
 
@@ -158,6 +161,11 @@ def test_braket_backend(monkeypatch):
         "braket.circuits",
         types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
     )
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
 
     device1 = FakeDevice("01000010")
     backend = qs_kdf.BraketBackend(device=device1)
@@ -182,8 +190,53 @@ def test_braket_backend_unavailable(monkeypatch):
         "braket.aws",
         types.SimpleNamespace(AwsDevice=FailingDevice),
     )
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
 
     backend = qs_kdf.BraketBackend(device=None)
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
+def test_braket_backend_missing_sdk(monkeypatch):
+    monkeypatch.delitem(sys.modules, "braket.aws", raising=False)
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
+
+    backend = qs_kdf.BraketBackend(device=None)
+    assert backend.device is None
+    assert isinstance(backend._init_error, ImportError)
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
+def test_braket_backend_missing_credentials(monkeypatch):
+    class NoCredsError(Exception):
+        pass
+
+    def failing_device(_arn: str):
+        raise NoCredsError("no creds")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.aws",
+        types.SimpleNamespace(AwsDevice=failing_device),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=NoCredsError),
+    )
+
+    backend = qs_kdf.BraketBackend(device=None)
+    assert backend.device is None
+    assert isinstance(backend._init_error, NoCredsError)
     with pytest.raises(RuntimeError):
         backend.run(b"seed")
 
@@ -206,3 +259,13 @@ def test_cli_invalid_salt():
 def test_cli_invalid_digest():
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
+
+
+@pytest.mark.parametrize("missing", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
+def test_cli_cloud_missing_env(monkeypatch, missing):
+    monkeypatch.setenv("KMS_KEY_ID", "k")
+    monkeypatch.setenv("PEPPER_CIPHERTEXT", "c")
+    monkeypatch.setenv("REDIS_HOST", "r")
+    monkeypatch.delenv(missing)
+    with pytest.raises(SystemExit):
+        cli_module.main(["hash", "pw", "--salt", "01" * 16, "--cloud"])
