@@ -3,7 +3,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
 from .constants import PEPPER
 
@@ -43,8 +43,24 @@ class Backend(Protocol):
 @dataclass
 class LocalBackend:
     def run(self, seed: bytes) -> bytes:
+        """Return first 10 bytes of SHA-512 digest of ``seed``.
+
+        Args:
+            seed: Seed material for the digest.
+
+        Returns:
+            bytes: Ten-byte digest slice.
+        """
+
         digest = hashlib.sha512(seed).digest()
-        return digest[:1]
+        return digest[:10]
+
+
+def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
+    """Return 256-bit stretched digest using a double hash."""
+    data = password.encode() + salt + pepper
+    digest = hashlib.sha512(data).digest()
+    return hashlib.sha256(digest).digest()
 
 
 @dataclass
@@ -52,9 +68,11 @@ class BraketBackend:
     """Backend fetching random bytes from AWS Braket."""
 
     device: Any | None = None
-    num_bytes: int = 1
+    num_bytes: int = 10
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
+        """Create default ``AwsDevice`` when none is supplied."""
+
         if self.device is None:
             try:
                 from braket.aws import AwsDevice  # type: ignore
@@ -66,6 +84,8 @@ class BraketBackend:
                 )
 
     def run(self, _seed: bytes) -> bytes:
+        """Return ``num_bytes`` random bytes from Braket or fallback."""
+
         if self.device is None:
             backend = LocalBackend()
             return b"".join(
@@ -90,7 +110,17 @@ def hash_password(
     backend: Backend | None = None,
     pepper: bytes | None = None,
 ) -> bytes:
-    """Return Argon2id digest with quantum salt byte."""
+    """Compute Argon2id digest with quantum salt bytes.
+
+    Args:
+        password: Password string to hash.
+        salt: Salt bytes.
+        backend: Backend providing quantum randomness.
+        pepper: Optional pepper value.
+
+    Returns:
+        bytes: Final digest bytes.
+    """
     _warm_up()
     if backend is None:
         backend = LocalBackend()
@@ -118,16 +148,44 @@ def verify_password(
     backend: Backend | None = None,
     pepper: bytes | None = None,
 ) -> bool:
-    """Return ``True`` if password and salt match ``digest``."""
+    """Check that password and salt produce ``digest``.
+
+    Args:
+        password: Candidate password string.
+        salt: Original salt bytes.
+        digest: Expected digest bytes.
+        backend: Backend providing quantum randomness.
+        pepper: Optional pepper value.
+
+    Returns:
+        bool: ``True`` on match, ``False`` otherwise.
+    """
     candidate = hash_password(password, salt, backend=backend, pepper=pepper)
     return secrets.compare_digest(candidate, digest)
 
 
 class RedisCache:
     def __init__(self, client):
+        """Initialize wrapper around a Redis client.
+
+        Args:
+            client: Redis client instance.
+        """
+
         self.client = client
 
     def get_or_set(self, key: str, ttl: int, producer: Callable[[], bytes]) -> bytes:
+        """Get cached value or compute and store it.
+
+        Args:
+            key: Cache key.
+            ttl: Time-to-live in seconds.
+            producer: Callable producing the value.
+
+        Returns:
+            bytes: Cached or newly produced value.
+        """
+
         cached = self.client.get(key)
         if cached:
             return cached
@@ -136,11 +194,33 @@ class RedisCache:
         return value
 
 
-def lambda_handler(event: dict, _ctx) -> dict:
+@dataclass
+class HashEvent:
+    """Invocation payload for :func:`lambda_handler`."""
+
+    password: str
+    salt: str
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "HashEvent":
+        """Return ``HashEvent`` built from ``data``."""
+        if not isinstance(data, Mapping):
+            raise TypeError("event must be a mapping")
+        try:
+            password = data["password"]
+            salt = data["salt"]
+        except KeyError as exc:  # pragma: no cover - tested indirectly
+            raise KeyError(f"missing field: {exc.args[0]}") from exc
+        if not isinstance(password, str) or not isinstance(salt, str):
+            raise TypeError("password and salt must be strings")
+        return cls(password=password, salt=salt)
+
+
+def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     """Handle Argon2id hashing request via AWS Lambda.
 
     Args:
-        event: Invocation payload containing "salt" and "password".
+        event: Invocation payload containing ``salt`` and ``password``.
         _ctx: Lambda context object (unused).
 
     Returns:
@@ -151,8 +231,9 @@ def lambda_handler(event: dict, _ctx) -> dict:
     from braket.aws import AwsDevice  # type: ignore
     from braket.circuits import Circuit  # type: ignore
 
-    salt_hex = event["salt"]
-    password = event["password"]
+    evt = event if isinstance(event, HashEvent) else HashEvent.from_dict(event)
+    salt_hex = evt.salt
+    password = evt.password
     kms_key = os.environ["KMS_KEY_ID"]
     cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
 
@@ -172,12 +253,15 @@ def lambda_handler(event: dict, _ctx) -> dict:
     circuit = Circuit().h(range(8)).measure(range(8))
 
     def _producer():
-        task = device.run(circuit, shots=1)
-        result = task.result()
-        bits = next(iter(result.measurement_counts))
-        return int(bits, 2).to_bytes(1, "big")
+        result_bytes = bytearray()
+        for _ in range(10):
+            task = device.run(circuit, shots=1)
+            result = task.result()
+            bits = next(iter(result.measurement_counts))
+            result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
+        return bytes(result_bytes)
 
-    quantum_byte = cache.get_or_set(key, 120, _producer)
+    quantum_bytes = cache.get_or_set(key, 120, _producer)
 
     class FixedBackend:
         def __init__(self, byte: bytes) -> None:
@@ -190,6 +274,6 @@ def lambda_handler(event: dict, _ctx) -> dict:
         password,
         seed,
         pepper=pepper,
-        backend=FixedBackend(quantum_byte),
+        backend=FixedBackend(quantum_bytes),
     )
     return {"digest": digest.hex()}

@@ -2,10 +2,11 @@ import base64
 import hashlib
 import sys
 import types
+from dataclasses import asdict
 
 import pytest
 
-from qs_kdf.core import hash_password, lambda_handler
+from qs_kdf.core import HashEvent, hash_password, lambda_handler
 
 
 class DummyBackend:
@@ -128,24 +129,24 @@ def _setup_modules(
 
 
 def test_lambda_handler_cache_miss(monkeypatch, _env):
-    quantum = b"\xaa"
+    quantum = b"\xaa" * 10
     pepper = b"pepper"
     kms = FakeKMS(pepper, b"cipher")
     device = FakeBraketDevice("10101010")
     redis_client = FakeRedisClient()
     _setup_modules(monkeypatch, kms, redis_client, device)
 
-    event = {"password": "pw", "salt": "00" * 16}
+    event = asdict(HashEvent(password="pw", salt="00" * 16))
     result = lambda_handler(event, None)
 
     assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
     assert kms.decrypt_called == 1
-    assert device.run_calls == 1
+    assert device.run_calls == 10
     assert redis_client.set_calls
 
 
 def test_lambda_handler_cache_hit(monkeypatch, _env):
-    quantum = b"\x42"
+    quantum = b"\x42" * 10
     pepper = b"pepper"
     key = hashlib.sha256(bytes.fromhex("11" * 16)).hexdigest()
     redis_client = FakeRedisClient({key: quantum})
@@ -153,12 +154,23 @@ def test_lambda_handler_cache_hit(monkeypatch, _env):
     device = FakeBraketDevice("01000010")
     _setup_modules(monkeypatch, kms, redis_client, device)
 
-    event = {"password": "pw", "salt": "11" * 16}
+    event = asdict(HashEvent(password="pw", salt="11" * 16))
     result = lambda_handler(event, None)
 
     assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
     assert device.run_calls == 0
     assert not redis_client.set_calls
+
+
+def test_lambda_handler_invalid_salt(monkeypatch, _env):
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = {"password": "pw", "salt": "zz"}
+    with pytest.raises(ValueError):
+        lambda_handler(event, None)
 
 
 @pytest.mark.parametrize("var", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
@@ -170,4 +182,4 @@ def test_lambda_handler_missing_env(monkeypatch, var, _env):
 
     monkeypatch.delenv(var, raising=False)
     with pytest.raises(KeyError):
-        lambda_handler({"password": "pw", "salt": "22" * 16}, None)
+        lambda_handler(asdict(HashEvent(password="pw", salt="22" * 16)), None)

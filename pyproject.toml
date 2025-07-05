@@ -10,7 +10,6 @@ readme = "README.md"
 authors = [{name = "Example", email = "example@example.com"}]
 requires-python = ">=3.10"
 dependencies = [
-    "qiskit",
     "argon2-cffi",
     "boto3",
     "redis",
@@ -18,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-qsargon2 = "qsargon2:main"
+qs_kdf = "qs_kdf.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

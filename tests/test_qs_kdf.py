@@ -1,9 +1,12 @@
+import argparse
 import contextlib
 import importlib
 import io
-import time
 import sys
+import time
 import types
+
+import pytest
 
 import qs_kdf
 
@@ -50,6 +53,7 @@ def test_timing_attack():
     assert abs(good - bad) <= 0.5
 
 
+
 def test_verify_password():
     salt = b"\x03" * 16
     backend = qs_kdf.TestBackend()
@@ -73,6 +77,23 @@ def test_cli_verify():
         ]
     )
     assert out == "OK"
+
+
+def test_cli_verify_nope():
+    backend = qs_kdf.LocalBackend()
+    salt = b"\x05" * 16
+    qs_kdf.hash_password("pw", salt, backend=backend)
+    out = _run_cli(
+        [
+            "verify",
+            "pw",
+            "--salt",
+            "05" * 16,
+            "--digest",
+            "00" * 32,
+        ]
+    )
+    assert out == "NOPE"
 
 
 def test_braket_backend(monkeypatch):
@@ -110,8 +131,18 @@ def test_braket_backend(monkeypatch):
 
     backend = qs_kdf.BraketBackend(device=FakeDevice("01000010"))
     result = backend.run(b"seed")
-    assert result == b"\x42"
+    assert result == b"\x42" * 10
 
     backend2 = qs_kdf.BraketBackend(device=FakeDevice("01000010"), num_bytes=2)
     result2 = backend2.run(b"seed")
     assert result2 == b"\x42\x42"
+
+
+def test_cli_invalid_salt():
+    with pytest.raises(argparse.ArgumentTypeError):
+        cli_module.main(["hash", "pw", "--salt", "zz"])
+
+
+def test_cli_invalid_digest():
+    with pytest.raises(argparse.ArgumentTypeError):
+        cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
