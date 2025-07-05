@@ -3,6 +3,8 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     strategy:
       matrix:
         python: ["3.10", "3.11"]
@@ -28,6 +30,12 @@ jobs:
         run: |
           pip install pytest pytest-cov
           pytest --cov=src --cov-report=xml --cov-fail-under=70
+      - name: Upload coverage
+        if: env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          token: ${{ env.CODECOV_TOKEN }}
       - name: CDK Synth
         working-directory: infra
         run: cdk synth
