@@ -129,7 +129,7 @@ def _setup_modules(
 
 
 def test_lambda_handler_cache_miss(monkeypatch, _env):
-    quantum = b"\xaa"
+    quantum = b"\xaa" * 10
     pepper = b"pepper"
     kms = FakeKMS(pepper, b"cipher")
     device = FakeBraketDevice("10101010")
@@ -141,12 +141,12 @@ def test_lambda_handler_cache_miss(monkeypatch, _env):
 
     assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
     assert kms.decrypt_called == 1
-    assert device.run_calls == 1
+    assert device.run_calls == 10
     assert redis_client.set_calls
 
 
 def test_lambda_handler_cache_hit(monkeypatch, _env):
-    quantum = b"\x42"
+    quantum = b"\x42" * 10
     pepper = b"pepper"
     key = hashlib.sha256(bytes.fromhex("11" * 16)).hexdigest()
     redis_client = FakeRedisClient({key: quantum})

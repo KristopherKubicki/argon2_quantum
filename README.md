@@ -1,6 +1,6 @@
 # Argon2 Quantum
 
-This project demonstrates a quantum inspired pre-hash using a random byte
+This project demonstrates a quantum inspired pre-hash using ten random bytes
 retrieved from AWS Braket followed by a classic memory-hard KDF. The quantum
 step executes a simple circuit on the managed simulator.
 

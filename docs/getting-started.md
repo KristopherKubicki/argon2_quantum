@@ -53,7 +53,7 @@ Alternatively run:
 terraform -chdir=terraform apply
 ```
 
-The random byte is fetched from AWS Braket by running a tiny circuit. Ensure
+The random bytes are fetched from AWS Braket by running a tiny circuit. Ensure
 your credentials permit Braket execution. See the
 [Braket documentation](https://docs.aws.amazon.com/braket/)
 for further details.

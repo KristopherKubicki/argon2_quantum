@@ -43,17 +43,17 @@ class Backend(Protocol):
 @dataclass
 class LocalBackend:
     def run(self, seed: bytes) -> bytes:
-        """Return first byte of SHA-512 digest of ``seed``.
+        """Return first 10 bytes of SHA-512 digest of ``seed``.
 
         Args:
             seed: Seed material for the digest.
 
         Returns:
-            bytes: One-byte digest slice.
+            bytes: Ten-byte digest slice.
         """
 
         digest = hashlib.sha512(seed).digest()
-        return digest[:1]
+        return digest[:10]
 
 
 def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
@@ -68,7 +68,7 @@ class BraketBackend:
     """Backend fetching random bytes from AWS Braket."""
 
     device: Any | None = None
-    num_bytes: int = 1
+    num_bytes: int = 10
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
         """Create default ``AwsDevice`` when none is supplied."""
@@ -110,7 +110,7 @@ def hash_password(
     backend: Backend | None = None,
     pepper: bytes | None = None,
 ) -> bytes:
-    """Compute Argon2id digest with one quantum salt byte.
+    """Compute Argon2id digest with quantum salt bytes.
 
     Args:
         password: Password string to hash.
@@ -253,12 +253,15 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     circuit = Circuit().h(range(8)).measure(range(8))
 
     def _producer():
-        task = device.run(circuit, shots=1)
-        result = task.result()
-        bits = next(iter(result.measurement_counts))
-        return int(bits, 2).to_bytes(1, "big")
+        result_bytes = bytearray()
+        for _ in range(10):
+            task = device.run(circuit, shots=1)
+            result = task.result()
+            bits = next(iter(result.measurement_counts))
+            result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
+        return bytes(result_bytes)
 
-    quantum_byte = cache.get_or_set(key, 120, _producer)
+    quantum_bytes = cache.get_or_set(key, 120, _producer)
 
     class FixedBackend:
         def __init__(self, byte: bytes) -> None:
@@ -271,6 +274,6 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
         password,
         seed,
         pepper=pepper,
-        backend=FixedBackend(quantum_byte),
+        backend=FixedBackend(quantum_bytes),
     )
     return {"digest": digest.hex()}

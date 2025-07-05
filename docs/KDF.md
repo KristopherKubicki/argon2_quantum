@@ -8,7 +8,7 @@
 | Insider       | Reads DB and cache      | KMS protected pepper           |
 | Network       | Snoops traffic          | TLS enforced by API Gateway    |
 
-The quantum byte is fetched from AWS Braket in production or generated locally
+The quantum bytes are fetched from AWS Braket in production or generated locally
 during development. This makes brute-force attempts expensive because each
 password guess must reproduce the extra step.
 
@@ -18,7 +18,7 @@ password guess must reproduce the extra step.
 client -> API Gateway -> Lambda qs_kdf -> Redis/Braket -> Braket -> Argon2
 ```
 
-Redis caches the quantum byte for a short period to reduce latency. The Lambda
+Redis caches the quantum bytes for a short period to reduce latency. The Lambda
 function can operate without the cache but will incur extra calls to Braket.
 
 ## API Example
