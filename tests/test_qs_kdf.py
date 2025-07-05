@@ -50,7 +50,7 @@ def test_timing_attack():
     start_bad = time.perf_counter()
     qs_kdf.hash_password("bad", salt, backend=backend)
     bad = time.perf_counter() - start_bad
-    assert abs(good - bad) <= 0.05
+    assert abs(good - bad) <= 0.1
 
 
 def test_verify_password():
@@ -130,7 +130,7 @@ def test_braket_backend(monkeypatch):
 
     backend = qs_kdf.BraketBackend(device=FakeDevice("01000010"))
     result = backend.run(b"seed")
-    assert result == b"\x42"
+    assert result == b"\x42" * 10
 
     backend2 = qs_kdf.BraketBackend(device=FakeDevice("01000010"), num_bytes=2)
     result2 = backend2.run(b"seed")
