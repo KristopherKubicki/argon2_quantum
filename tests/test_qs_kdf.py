@@ -158,6 +158,11 @@ def test_braket_backend(monkeypatch):
         "braket.circuits",
         types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
     )
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
 
     device1 = FakeDevice("01000010")
     backend = qs_kdf.BraketBackend(device=device1)
@@ -182,8 +187,53 @@ def test_braket_backend_unavailable(monkeypatch):
         "braket.aws",
         types.SimpleNamespace(AwsDevice=FailingDevice),
     )
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
 
     backend = qs_kdf.BraketBackend(device=None)
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
+def test_braket_backend_missing_sdk(monkeypatch):
+    monkeypatch.delitem(sys.modules, "braket.aws", raising=False)
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
+
+    backend = qs_kdf.BraketBackend(device=None)
+    assert backend.device is None
+    assert isinstance(backend._init_error, ImportError)
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
+def test_braket_backend_missing_credentials(monkeypatch):
+    class NoCredsError(Exception):
+        pass
+
+    def failing_device(_arn: str):
+        raise NoCredsError("no creds")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.aws",
+        types.SimpleNamespace(AwsDevice=failing_device),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=NoCredsError),
+    )
+
+    backend = qs_kdf.BraketBackend(device=None)
+    assert backend.device is None
+    assert isinstance(backend._init_error, NoCredsError)
     with pytest.raises(RuntimeError):
         backend.run(b"seed")
 

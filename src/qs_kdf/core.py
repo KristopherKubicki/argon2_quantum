@@ -3,7 +3,8 @@ import hashlib
 import os
 import secrets
 import threading
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
 from .constants import PEPPER
@@ -74,6 +75,7 @@ class BraketBackend:
 
     device: Any | None = None
     num_bytes: int = 10
+    _init_error: Exception | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
         """Create default ``AwsDevice`` when none is supplied.
@@ -85,18 +87,34 @@ class BraketBackend:
         if self.device is None:
             try:
                 from braket.aws import AwsDevice  # type: ignore
+                from botocore.exceptions import NoCredentialsError  # type: ignore
+            except ImportError as exc:  # pragma: no cover - optional
+                logging.getLogger(__name__).error("Braket import failed: %s", exc)
+                self._init_error = exc
+                self.device = None
+                return
 
+            try:
                 self.device = AwsDevice(
                     "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
                 )
-            except Exception:  # pragma: no cover - optional
+            except NoCredentialsError as exc:  # pragma: no cover - optional
+                logging.getLogger(__name__).error("AWS credentials missing: %s", exc)
+                self._init_error = exc
+                self.device = None
+            except Exception as exc:  # pragma: no cover - optional
+                logging.getLogger(__name__).error("AwsDevice init failed: %s", exc)
+                self._init_error = exc
                 self.device = None
 
     def run(self, _seed: bytes) -> bytes:
         """Return ``num_bytes`` random bytes from Braket."""
 
         if self.device is None:
-            raise RuntimeError("Braket backend unavailable")
+            msg = "Braket backend unavailable"
+            if self._init_error:
+                msg += f": {self._init_error}"
+            raise RuntimeError(msg)
 
         from braket.circuits import Circuit  # type: ignore
 
