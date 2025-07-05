@@ -194,8 +194,9 @@ def test_lambda_handler_missing_env(monkeypatch, var, _env):
     _setup_modules(monkeypatch, kms, redis_client, device)
 
     monkeypatch.delenv(var, raising=False)
-    with pytest.raises(KeyError):
+    with pytest.raises(RuntimeError) as exc:
         lambda_handler(asdict(HashEvent(password="pw", salt="22" * 16)), None)
+    assert var in str(exc.value)
 
 
 def test_lambda_handler_redis_options(monkeypatch, _env):
