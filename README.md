@@ -56,6 +56,14 @@ terraform -chdir=terraform apply
 For an overview of the approach and more deployment tips see the documents in
 [`docs/`](docs/).
 
+## Development
+
+Install extra tools for linting and testing:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
 ## Infrastructure
 
 The AWS resources are defined with the CDK in [`infra/`](infra/). Validate the

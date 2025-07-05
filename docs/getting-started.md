@@ -16,6 +16,12 @@ pip install .
 # argon2-cffi is installed as a required dependency
 ```
 
+Install the development dependencies when running linting or tests:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
 ## Hash a Password
 
 ```bash
