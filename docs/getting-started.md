@@ -33,6 +33,13 @@ Replace it with your own secret when deploying.
 Passwords longer than 64 bytes or salts over 32 bytes are rejected by both
 the CLI and Lambda handler to keep memory usage predictable.
 
+### Local simulation
+
+The CLI defaults to the ``LocalBackend`` which slices a SHA‑512 digest of the
+stretched password to produce ten deterministic bytes. This allows repeatable
+hashing and verification without any AWS credentials. Use this mode for local
+tests or CI runs.
+
 ### Cloud mode
 
 Running with `--cloud` invokes the deployed Lambda. Set the following
@@ -51,11 +58,14 @@ executing the command.
 
 ## Verify a Password
 
+First generate a digest then check it against the original password:
+
 ```bash
-python -m qs_kdf verify "hunter2" --salt 0011223344556677 --digest <hex>
+digest=$(python -m qs_kdf hash "hunter2" --salt 0011223344556677)
+python -m qs_kdf verify "hunter2" --salt 0011223344556677 --digest "$digest"
 ```
 
-`verify` exits with the digest result printed to stdout (`OK` or `NOPE`).
+``OK`` means the password matches while ``NOPE`` indicates a mismatch.
 
 ## Building the Lambda Artifact
 
@@ -70,11 +80,29 @@ source code and zips the directory for the CDK stack.
 
 ## Deploying the Lambda
 
-The infrastructure is defined using the AWS CDK. Deploy with:
+Follow these steps to provision the cloud resources:
 
-```bash
-cd infra && cdk deploy
-```
+1. Build the Lambda package if not already present:
+
+   ```bash
+   ./scripts/package_lambda.sh
+   ```
+
+2. Deploy the CDK stack:
+
+   ```bash
+   cd infra && cdk deploy
+   ```
+
+   The command prints ``KMS_KEY_ID``, ``PEPPER_CIPHERTEXT`` and
+   ``REDIS_HOST``. Export them for the CLI to locate the key, pepper and cache:
+
+   ```bash
+   export KMS_KEY_ID=<kms-key-id>
+   export PEPPER_CIPHERTEXT=<base64-ciphertext>
+   export REDIS_HOST=<redis-endpoint>
+   export REDIS_PORT=6379  # optional when using the default port
+   ```
 
 The random bytes are fetched from AWS Braket by running a tiny circuit. Ensure
 your credentials permit Braket execution. See the
