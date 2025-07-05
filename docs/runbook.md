@@ -23,3 +23,14 @@ possible.
 Passwords are hashed with the old method and the quantum-extended version in
 parallel. After all users rotate their credentials, the quantum layer can be
 removed without disrupting verification.
+
+## Operational Tasks
+
+* **Cache Flush**: run `redis-cli FLUSHALL` to clear stored quantum bytes when
+  corruption is suspected or after a major upgrade.
+* **Pepper Rotation**: update the `QS_PEPPER` secret and redeploy the Lambda
+  function. Old peppers remain valid for 24 hours to avoid lockouts.
+* **Redeploy Steps**: build the container, push to ECR and run `make deploy`
+  from the CI runner. Ensure the Step Function points at the new image tag.
+* **Monitoring Tips**: watch CloudWatch for Braket errors, Redis latency and
+  container restarts. Alert on sustained spikes or missing metrics.
