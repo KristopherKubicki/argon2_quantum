@@ -24,7 +24,7 @@ class QsKdfStack(Stack):
             self,
             "Handler",
             runtime=lambda_.Runtime.PYTHON_3_11,
-            code=lambda_.Code.from_asset("../"),
+            code=lambda_.Code.from_asset("../build/lambda"),
             handler="qs_kdf.lambda_handler",
             role=lambda_role,
             timeout=Duration.seconds(10),
