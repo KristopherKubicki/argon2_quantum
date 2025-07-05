@@ -30,6 +30,22 @@ production.
 The repository ships with a static 32-byte pepper used for these examples.
 Replace it with your own secret when deploying.
 
+### Cloud mode
+
+Running with `--cloud` invokes the deployed Lambda. Set the following
+environment variables so the CLI can locate the key, pepper and cache:
+
+```bash
+export KMS_KEY_ID=<kms-key-id>
+export PEPPER_CIPHERTEXT=<base64-ciphertext>
+export REDIS_HOST=<redis-endpoint>
+# Optional when not using the default port
+export REDIS_PORT=6379
+```
+
+`cdk deploy` prints these values after provisioning. Export them before
+executing the command.
+
 ## Verify a Password
 
 ```bash
