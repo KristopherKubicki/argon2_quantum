@@ -1,3 +1,13 @@
+"""Quantum-stretch key derivation and backend interfaces.
+
+This module exposes utility functions to perform Argon2-based key derivation
+that optionally incorporates randomness from quantum hardware. Local hashing is
+provided by :class:`LocalBackend`, while :class:`BraketBackend` fetches bytes
+from AWS Braket devices when available. The exported ``hash_password`` and
+``verify_password`` helpers use these backends to combine passwords, salts and
+pepper into stable digests.
+"""
+
 import base64
 import hashlib
 import os
