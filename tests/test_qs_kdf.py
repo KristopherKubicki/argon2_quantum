@@ -61,6 +61,15 @@ def test_cli_output_local():
     assert out
 
 
+def test_cli_generates_salt():
+    out = _run_cli(["hash", "pw"])
+    salt_hex, digest_hex = out.split()
+    assert len(salt_hex) == 32
+    assert len(digest_hex) == 64
+    verify_out = _run_cli(["verify", "pw", "--salt", salt_hex, "--digest", digest_hex])
+    assert verify_out == "OK"
+
+
 def test_cli_output_cloud(monkeypatch):
     def fake_handler(event: dict, _ctx: object) -> dict:
         return {"digest": "deadbeef"}
