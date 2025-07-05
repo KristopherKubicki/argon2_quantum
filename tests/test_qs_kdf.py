@@ -180,6 +180,43 @@ def test_braket_backend(monkeypatch):
     assert device2.run_shots == [2]
 
 
+def test_braket_backend_count_mismatch(monkeypatch):
+    class FakeCircuit:
+        def h(self, *args, **kwargs):
+            return self
+
+        def measure(self, *args, **kwargs):
+            return self
+
+    class FakeResult:
+        def __init__(self, bits: str, shots: int) -> None:
+            self.measurement_counts = {bits: shots - 1}
+
+    class FakeTask:
+        def __init__(self, bits: str, shots: int) -> None:
+            self._bits = bits
+            self._shots = shots
+
+        def result(self):
+            return FakeResult(self._bits, self._shots)
+
+    class FakeDevice:
+        def __init__(self, bits: str) -> None:
+            self.bits = bits
+
+        def run(self, circuit, shots: int):
+            return FakeTask(self.bits, shots)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.circuits",
+        types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
+    )
+    backend = qs_kdf.BraketBackend(device=FakeDevice("00"))
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
 def test_braket_backend_unavailable(monkeypatch):
     class FailingDevice:
         def __init__(self, *args, **kwargs) -> None:

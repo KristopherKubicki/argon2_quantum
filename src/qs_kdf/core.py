@@ -159,6 +159,8 @@ class BraketBackend:
         result_bytes = bytearray()
         for bits, count in result.measurement_counts.items():
             result_bytes.extend(int(bits, 2).to_bytes(1, "big") * count)
+        if len(result_bytes) != self.num_bytes:
+            raise RuntimeError("measurement count mismatch")
         return bytes(result_bytes)
 
 
