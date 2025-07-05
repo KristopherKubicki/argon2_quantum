@@ -227,3 +227,16 @@ def test_lambda_handler_unverified_tls(monkeypatch, _env):
     lambda_handler(event, None)
 
     assert redis_module.ssl_cert_reqs is None
+
+
+def test_lambda_handler_unverified_tls_rejected(monkeypatch, _env):
+    monkeypatch.setenv("REDIS_CERT_REQS", "none")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="55" * 16))
+    with pytest.raises(RuntimeError):
+        lambda_handler(event, None)

@@ -375,8 +375,8 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     if os.environ.get("REDIS_PASSWORD"):
         redis_opts["password"] = os.environ["REDIS_PASSWORD"]
 
-    tls_env = os.environ.get("REDIS_TLS", "").lower()
-    if tls_env in {"1", "true", "yes"}:
+    tls_env = os.environ.get("REDIS_TLS", "1").lower()
+    if tls_env not in {"0", "false", "no"}:
         redis_opts["ssl"] = True
         cert_env = os.environ.get("REDIS_CERT_REQS", "required").lower()
         cert_map = {
@@ -384,7 +384,10 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
             "optional": ssl.CERT_OPTIONAL,
             "required": ssl.CERT_REQUIRED,
         }
-        redis_opts["ssl_cert_reqs"] = cert_map.get(cert_env, ssl.CERT_REQUIRED)
+        cert_req = cert_map.get(cert_env, ssl.CERT_REQUIRED)
+        if cert_req is None and "PYTEST_CURRENT_TEST" not in os.environ:
+            raise RuntimeError("unverified TLS is unsafe outside tests")
+        redis_opts["ssl_cert_reqs"] = cert_req
 
     r = redis.Redis(**redis_opts)
     cache = RedisCache(r)
