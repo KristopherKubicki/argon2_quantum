@@ -22,6 +22,10 @@ This project demonstrates a minimal "quantum stretch". A tiny circuit runs on ma
 ### Installation
 ```bash
 pip install .
+python -m qs_kdf hash mypassword --salt deadbeefcafebabe
+
+# or let the CLI pick a salt for you
+python -m qs_kdf hash mypassword
 ```
 
 ### Hash a password
@@ -29,7 +33,26 @@ pip install .
 python -m qs_kdf hash "mypassword" --salt deadbeefcafebabe
 ```
 
-The digest can be verified later:
+When no salt is provided the CLI prints the generated salt and digest separated
+by a space. The salt must be saved for verification.
+
+```bash
+$ python -m qs_kdf hash mypassword
+0123456789abcdef0123456789abcdef deadbeef...
+```
+
+Running without `--cloud` keeps all computation local using the built-in
+simulator backend.
+
+The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) can be deployed
+with a single command:
+
+```bash
+cd infra && cdk deploy
+```
+
+Verify:
+
 ```bash
 python -m qs_kdf verify "mypassword" --salt deadbeefcafebabe --digest <hex>
 ```

@@ -22,6 +22,14 @@ pip install .
 python -m qs_kdf hash "hunter2" --salt 0011223344556677
 ```
 
+You can omit `--salt` to generate a random 16-byte value. The salt is printed
+alongside the digest:
+
+```bash
+python -m qs_kdf hash "hunter2"
+0123456789abcdef0123456789abcdef deadbeef...
+```
+
 By default the command uses a local simulator backend and requires no AWS
 connectivity. Pass `--cloud` to route the request through the Lambda handler.
 In this demo it returns a fixed value but shows how the API would be used in
@@ -53,6 +61,12 @@ executing the command.
 
 ```bash
 python -m qs_kdf verify "hunter2" --salt 0011223344556677 --digest <hex>
+```
+
+If the salt was auto-generated, pass the printed values back to `verify`:
+
+```bash
+python -m qs_kdf verify "hunter2" --salt <printed-salt> --digest <printed-digest>
 ```
 
 `verify` exits with the digest result printed to stdout (`OK` or `NOPE`).
