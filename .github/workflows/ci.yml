@@ -18,9 +18,12 @@ jobs:
           pip install .
           pip install argon2-cffi
           pip install ruff
+          pip install bandit
           pip install -r infra/requirements.txt
       - name: Ruff
         run: ruff check .
+      - name: Bandit
+        run: bandit -c .bandit.yml -r src/qs_kdf
       - name: Tests
         run: |
           pip install pytest pytest-cov
