@@ -7,6 +7,14 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
+try:  # pragma: no cover - optional dependency
+    from redis.exceptions import RedisError  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    class RedisError(Exception):
+        """Fallback Redis error when redis module is missing."""
+
+        pass
+
 from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, PEPPER
 
 _warmed_up = False
@@ -269,11 +277,23 @@ class RedisCache:
             bytes: Cached or newly produced value.
         """
 
-        cached = self.client.get(key)
+        logger = logging.getLogger(__name__)
+        try:
+            cached = self.client.get(key)
+        except RedisError as exc:  # pragma: no cover - optional
+            logger.error("Redis get failed: %s", exc)
+            return producer()
+
         if cached:
             return cached
+
         value = producer()
-        self.client.setex(key, ttl, value)
+
+        try:
+            self.client.setex(key, ttl, value)
+        except RedisError as exc:  # pragma: no cover - optional
+            logger.error("Redis setex failed: %s", exc)
+
         return value
 
 
