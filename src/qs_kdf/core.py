@@ -302,6 +302,7 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
 
     Raises:
         KeyError: If ``event`` is missing required fields.
+        RuntimeError: If required environment variables are absent.
         TypeError: If ``event`` is not a valid mapping or strings.
     """
     import boto3  # type: ignore
@@ -311,6 +312,14 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     evt = event if isinstance(event, HashEvent) else HashEvent.from_dict(event)
     salt_hex = evt.salt
     password = evt.password
+
+    required_vars = ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]
+    missing = [var for var in required_vars if var not in os.environ]
+    if missing:
+        raise RuntimeError(
+            "missing environment variables: " + ", ".join(sorted(missing))
+        )
+
     kms_key = os.environ["KMS_KEY_ID"]
     cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
 
