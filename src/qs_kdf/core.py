@@ -43,6 +43,15 @@ class Backend(Protocol):
 @dataclass
 class LocalBackend:
     def run(self, seed: bytes) -> bytes:
+        """Return first byte of SHA-512 digest of ``seed``.
+
+        Args:
+            seed: Seed material for the digest.
+
+        Returns:
+            bytes: One-byte digest slice.
+        """
+
         digest = hashlib.sha512(seed).digest()
         return digest[:1]
 
@@ -55,6 +64,8 @@ class BraketBackend:
     num_bytes: int = 1
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
+        """Create default ``AwsDevice`` when none is supplied."""
+
         if self.device is None:
             try:
                 from braket.aws import AwsDevice  # type: ignore
@@ -66,6 +77,8 @@ class BraketBackend:
                 )
 
     def run(self, _seed: bytes) -> bytes:
+        """Return ``num_bytes`` random bytes from Braket or fallback."""
+
         if self.device is None:
             backend = LocalBackend()
             return b"".join(
@@ -90,7 +103,17 @@ def hash_password(
     backend: Backend | None = None,
     pepper: bytes | None = None,
 ) -> bytes:
-    """Return Argon2id digest with quantum salt byte."""
+    """Compute Argon2id digest with one quantum salt byte.
+
+    Args:
+        password: Password string to hash.
+        salt: Salt bytes.
+        backend: Backend providing quantum randomness.
+        pepper: Optional pepper value.
+
+    Returns:
+        bytes: Final digest bytes.
+    """
     _warm_up()
     if backend is None:
         backend = LocalBackend()
@@ -118,16 +141,44 @@ def verify_password(
     backend: Backend | None = None,
     pepper: bytes | None = None,
 ) -> bool:
-    """Return ``True`` if password and salt match ``digest``."""
+    """Check that password and salt produce ``digest``.
+
+    Args:
+        password: Candidate password string.
+        salt: Original salt bytes.
+        digest: Expected digest bytes.
+        backend: Backend providing quantum randomness.
+        pepper: Optional pepper value.
+
+    Returns:
+        bool: ``True`` on match, ``False`` otherwise.
+    """
     candidate = hash_password(password, salt, backend=backend, pepper=pepper)
     return secrets.compare_digest(candidate, digest)
 
 
 class RedisCache:
     def __init__(self, client):
+        """Initialize wrapper around a Redis client.
+
+        Args:
+            client: Redis client instance.
+        """
+
         self.client = client
 
     def get_or_set(self, key: str, ttl: int, producer: Callable[[], bytes]) -> bytes:
+        """Get cached value or compute and store it.
+
+        Args:
+            key: Cache key.
+            ttl: Time-to-live in seconds.
+            producer: Callable producing the value.
+
+        Returns:
+            bytes: Cached or newly produced value.
+        """
+
         cached = self.client.get(key)
         if cached:
             return cached
