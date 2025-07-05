@@ -12,8 +12,8 @@ previous per-shot loop.
 
 ## Failure Modes
 
-* **Braket Timeout**: Step Function enforces a 200 ms deadline and falls back to
-  a deterministic slice when exceeded.
+* **Braket Timeout**: Step Function enforces a 200 ms deadline. Invocations
+  exceeding this limit return an error.
 * **Braket Failure**: Lambda returns an error; monitoring via CloudWatch.
 * **Redis Unavailable**: Lambda proceeds without cache and stores result when
 possible.
