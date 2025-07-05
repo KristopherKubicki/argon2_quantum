@@ -10,7 +10,6 @@ readme = "README.md"
 authors = [{name = "Example", email = "example@example.com"}]
 requires-python = ">=3.10"
 dependencies = [
-    "qiskit",
     "argon2-cffi",
     "boto3",
     "redis",
