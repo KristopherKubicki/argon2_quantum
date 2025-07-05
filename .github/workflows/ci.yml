@@ -19,6 +19,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
           uv pip install --system -r requirements.txt
+          uv pip install --system -r requirements-dev.txt
           uv pip install --system -r infra/requirements.txt
           uv pip install --system .
           uv pip install --system ruff
