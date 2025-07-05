@@ -24,6 +24,10 @@ def main(argv: list[str] | None = None) -> int:
     h.add_argument("password")
     h.add_argument("--salt")
     h.add_argument("--cloud", action="store_true")
+    h.add_argument(
+        "--device-arn", default="arn:aws:braket:::device/qpu/ionq/ionQdevice"
+    )
+    h.add_argument("--num-bytes", type=int, default=10)
     h.add_argument("--time-cost", type=int, default=3)
     h.add_argument("--memory-cost", type=int, default=262_144)
     h.add_argument("--parallelism", type=int, default=4)
@@ -61,7 +65,13 @@ def main(argv: list[str] | None = None) -> int:
                     "--cloud requires environment variables: " + ", ".join(missing)
                 )
             response = lambda_handler(
-                {"password": args.password, "salt": salt_hex}, None
+                {
+                    "password": args.password,
+                    "salt": salt_hex,
+                    "device_arn": args.device_arn,
+                    "num_bytes": args.num_bytes,
+                },
+                None,
             )
             digest_hex = response["digest"]
         else:

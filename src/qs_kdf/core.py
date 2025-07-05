@@ -315,6 +315,8 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
 
     Args:
         event: Invocation payload containing ``salt`` and ``password``.
+            Optional keys ``"device_arn"`` and ``"num_bytes"`` select the
+            Braket device and the number of bytes to fetch.
         _ctx: Lambda context object (unused).
 
     Returns:
@@ -365,15 +367,32 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     cache = RedisCache(r)
     seed = bytes.fromhex(salt_hex)
     if len(password.encode()) > MAX_PASSWORD_BYTES:
-        raise ValueError(
-            f"password may not exceed {MAX_PASSWORD_BYTES} bytes"
-        )
+        raise ValueError(f"password may not exceed {MAX_PASSWORD_BYTES} bytes")
     if len(seed) > MAX_SALT_BYTES:
         raise ValueError(f"salt may not exceed {MAX_SALT_BYTES} bytes")
     key = hashlib.sha256(seed).hexdigest()
 
-    device = AwsDevice("arn:aws:braket:::device/qpu/ionq/ionQdevice")
-    backend = BraketBackend(device=device)
+    device_arn = (
+        getattr(evt, "device_arn", None)
+        if isinstance(event, HashEvent)
+        else event.get("device_arn")
+        if isinstance(event, Mapping)
+        else None
+    )
+    num_bytes = (
+        getattr(evt, "num_bytes", None)
+        if isinstance(event, HashEvent)
+        else event.get("num_bytes")
+        if isinstance(event, Mapping)
+        else None
+    )
+    if num_bytes is not None:
+        num_bytes = int(num_bytes)
+    else:
+        num_bytes = 10
+    device_arn = device_arn or "arn:aws:braket:::device/qpu/ionq/ionQdevice"
+    device = AwsDevice(device_arn)
+    backend = BraketBackend(device=device, device_arn=device_arn, num_bytes=num_bytes)
 
     def _producer() -> bytes:
         return backend.run(seed)
