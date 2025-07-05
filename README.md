@@ -44,6 +44,9 @@ $ python -m qs_kdf hash mypassword
 Running without `--cloud` keeps all computation local using the built-in
 simulator backend.
 
+Set ``QS_WARMUP=1`` or call ``qs_kdf.warm_up()`` to preload Argon2 memory
+for consistent benchmarking.
+
 The ``BraketBackend`` defaults to the IonQ QPU but accepts a ``device_arn``
 parameter if you wish to target a different device.
 

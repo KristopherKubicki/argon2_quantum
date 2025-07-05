@@ -7,6 +7,7 @@ import re
 from .core import (
     BraketBackend,
     LocalBackend,
+    warm_up,
     hash_password,
     lambda_handler,
     qstretch,
@@ -37,6 +38,7 @@ __all__ = [
     "TestBackend",
     "qstretch",
     "hash_password",
+    "warm_up",
     "verify_password",
     "LocalBackend",
     "BraketBackend",

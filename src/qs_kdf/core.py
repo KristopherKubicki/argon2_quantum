@@ -38,6 +38,12 @@ def _warm_up() -> None:
         _warmed_up = True
 
 
+def warm_up() -> None:
+    """Public wrapper enabling explicit warm-up."""
+
+    _warm_up()
+
+
 try:
     from argon2.low_level import Type, hash_secret_raw  # type: ignore
 except Exception as exc:  # pragma: no cover - enforce dependency
@@ -45,7 +51,8 @@ except Exception as exc:  # pragma: no cover - enforce dependency
         "argon2-cffi must be installed; run 'pip install argon2-cffi'"
     ) from exc
 
-_warm_up()
+if os.getenv("QS_WARMUP"):
+    _warm_up()
 
 
 class Backend(Protocol):
@@ -188,7 +195,6 @@ def hash_password(
     Returns:
         bytes: Final digest bytes.
     """
-    _warm_up()
     if backend is None:
         backend = LocalBackend()
     if pepper is None:
@@ -372,9 +378,7 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     cache = RedisCache(r)
     seed = bytes.fromhex(salt_hex)
     if len(password.encode()) > MAX_PASSWORD_BYTES:
-        raise ValueError(
-            f"password may not exceed {MAX_PASSWORD_BYTES} bytes"
-        )
+        raise ValueError(f"password may not exceed {MAX_PASSWORD_BYTES} bytes")
     if len(seed) > MAX_SALT_BYTES:
         raise ValueError(f"salt may not exceed {MAX_SALT_BYTES} bytes")
     key = hashlib.sha256(seed).hexdigest()
