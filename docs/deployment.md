@@ -46,13 +46,12 @@ export PEPPER_CIPHERTEXT=<base64-ciphertext>
 export REDIS_HOST=<redis-endpoint>
 export REDIS_PORT=6379  # optional when using the default
 export REDIS_TLS=1      # disable with 0/false/no
-export REDIS_CERT_REQS=required  # none|optional|required
+export REDIS_CERT_REQS=required  # optional|required
 ```
 
 ``REDIS_TLS`` defaults to ``1`` and disabling it is discouraged.
-``REDIS_CERT_REQS`` defaults to ``required``. Setting ``none`` disables
-certificate validation and is unsafe outside tests. ``optional`` allows
-failures while keeping TLS enabled.
+``REDIS_CERT_REQS`` defaults to ``required``. ``optional`` allows failures
+while keeping TLS enabled. Unverified TLS is no longer supported.
 
 For local testing omit `--cloud` and these variables are ignored. Running in
 cloud mode requires them to be present in the Lambda configuration or your
