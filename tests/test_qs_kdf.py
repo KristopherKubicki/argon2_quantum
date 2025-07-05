@@ -137,6 +137,12 @@ def test_braket_backend(monkeypatch):
     assert result2 == b"\x42\x42"
 
 
+def test_braket_backend_unavailable():
+    backend = qs_kdf.BraketBackend(device=None)
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
 def test_cli_invalid_salt():
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["hash", "pw", "--salt", "zz"])
