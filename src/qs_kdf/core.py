@@ -313,14 +313,26 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
 
     kms = boto3.client("kms")
-    pepper = kms.decrypt(KeyId=kms_key, CiphertextBlob=base64.b64decode(cipher_b64))[
-        "Plaintext"
-    ]
+    try:
+        pepper = kms.decrypt(
+            KeyId=kms_key,
+            CiphertextBlob=base64.b64decode(cipher_b64),
+        )["Plaintext"]
+    except Exception as exc:  # pragma: no cover - network dependent
+        logging.getLogger(__name__).error("KMS decrypt failed: %s", exc)
+        raise RuntimeError("KMS decrypt failed") from exc
 
-    r = redis.Redis(
-        host=os.environ["REDIS_HOST"], port=int(os.environ.get("REDIS_PORT", "6379"))
-    )
-    cache = RedisCache(r)
+    host = os.environ["REDIS_HOST"]
+    port = int(os.environ.get("REDIS_PORT", "6379"))
+    try:
+        r = redis.Redis(
+            host=host,
+            port=port,
+        )
+        cache = RedisCache(r)
+    except Exception as exc:  # pragma: no cover - network dependent
+        logging.getLogger(__name__).error("Redis operation failed: %s", exc)
+        raise RuntimeError("Redis operation failed") from exc
     seed = bytes.fromhex(salt_hex)
     key = hashlib.sha256(seed).hexdigest()
 
@@ -330,7 +342,11 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     def _producer() -> bytes:
         return backend.run(seed)
 
-    quantum_bytes = cache.get_or_set(key, 120, _producer)
+    try:
+        quantum_bytes = cache.get_or_set(key, 120, _producer)
+    except Exception as exc:  # pragma: no cover - network dependent
+        logging.getLogger(__name__).error("Redis operation failed: %s", exc)
+        raise RuntimeError("Redis operation failed") from exc
 
     class FixedBackend:
         def __init__(self, byte: bytes) -> None:

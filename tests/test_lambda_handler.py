@@ -85,6 +85,23 @@ class FakeRedisClient:
         self.set_calls.append((key, ttl, value))
 
 
+class FailingRedisClient(FakeRedisClient):
+    def __init__(self, fail_get: bool = False, fail_set: bool = False) -> None:
+        super().__init__()
+        self.fail_get = fail_get
+        self.fail_set = fail_set
+
+    def get(self, key: str):  # type: ignore[override]
+        if self.fail_get:
+            raise RuntimeError("get failed")
+        return super().get(key)
+
+    def setex(self, key: str, ttl: int, value: bytes):  # type: ignore[override]
+        if self.fail_set:
+            raise RuntimeError("set failed")
+        super().setex(key, ttl, value)
+
+
 class FakeRedisModule:
     def __init__(self, client: FakeRedisClient) -> None:
         self._client = client
@@ -186,3 +203,29 @@ def test_lambda_handler_missing_env(monkeypatch, var, _env):
     monkeypatch.delenv(var, raising=False)
     with pytest.raises(KeyError):
         lambda_handler(asdict(HashEvent(password="pw", salt="22" * 16)), None)
+
+
+def test_lambda_handler_kms_failure(monkeypatch, _env):
+    class BoomKMS(FakeKMS):
+        def decrypt(self, KeyId: str, CiphertextBlob: bytes):  # type: ignore[override]
+            raise RuntimeError("kms boom")
+
+    kms = BoomKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="00" * 16))
+    with pytest.raises(RuntimeError, match="KMS decrypt failed"):
+        lambda_handler(event, None)
+
+
+def test_lambda_handler_redis_failure(monkeypatch, _env):
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    redis_client = FailingRedisClient(fail_get=True)
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="00" * 16))
+    with pytest.raises(RuntimeError, match="Redis operation failed"):
+        lambda_handler(event, None)
