@@ -88,9 +88,14 @@ class FakeRedisClient:
 class FakeRedisModule:
     def __init__(self, client: FakeRedisClient) -> None:
         self._client = client
+        self.password: str | None = None
+        self.ssl: bool | None = None
 
-    def Redis(self, host: str, port: int):
+    def Redis(self, host: str, port: int, **kwargs):
         assert host == "r"
+        assert port == 6379
+        self.password = kwargs.get("password")
+        self.ssl = kwargs.get("ssl")
         return self._client
 
 
@@ -100,6 +105,8 @@ def _env(monkeypatch):
     monkeypatch.setenv("PEPPER_CIPHERTEXT", base64.b64encode(b"cipher").decode())
     monkeypatch.setenv("REDIS_HOST", "r")
     monkeypatch.setenv("REDIS_PORT", "6379")
+    monkeypatch.setenv("REDIS_PASSWORD", "secret")
+    monkeypatch.setenv("REDIS_TLS", "1")
 
 
 def _expected_digest(
@@ -114,9 +121,10 @@ def _expected_digest(
 
 def _setup_modules(
     monkeypatch, kms: FakeKMS, redis_client: FakeRedisClient, device: FakeBraketDevice
-) -> None:
+) -> FakeRedisModule:
     monkeypatch.setitem(sys.modules, "boto3", FakeBoto3(kms))
-    monkeypatch.setitem(sys.modules, "redis", FakeRedisModule(redis_client))
+    redis_module = FakeRedisModule(redis_client)
+    monkeypatch.setitem(sys.modules, "redis", redis_module)
 
     monkeypatch.setitem(
         sys.modules,
@@ -128,6 +136,8 @@ def _setup_modules(
         "braket.circuits",
         types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
     )
+
+    return redis_module
 
 
 def test_lambda_handler_cache_miss(monkeypatch, _env):
@@ -186,3 +196,16 @@ def test_lambda_handler_missing_env(monkeypatch, var, _env):
     monkeypatch.delenv(var, raising=False)
     with pytest.raises(KeyError):
         lambda_handler(asdict(HashEvent(password="pw", salt="22" * 16)), None)
+
+
+def test_lambda_handler_redis_options(monkeypatch, _env):
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    redis_module = _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="33" * 16))
+    lambda_handler(event, None)
+
+    assert redis_module.password == "secret"
+    assert redis_module.ssl is True
