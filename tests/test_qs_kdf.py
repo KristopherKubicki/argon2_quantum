@@ -66,6 +66,9 @@ def test_cli_output_cloud(monkeypatch):
         return {"digest": "deadbeef"}
 
     monkeypatch.setattr(cli_module, "lambda_handler", fake_handler)
+    monkeypatch.setenv("KMS_KEY_ID", "k")
+    monkeypatch.setenv("PEPPER_CIPHERTEXT", "c")
+    monkeypatch.setenv("REDIS_HOST", "r")
     out = _run_cli(["hash", "pw", "--salt", "01" * 16, "--cloud"])
     assert out == "deadbeef"
 
@@ -196,3 +199,13 @@ def test_cli_invalid_salt():
 def test_cli_invalid_digest():
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
+
+
+@pytest.mark.parametrize("missing", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
+def test_cli_cloud_missing_env(monkeypatch, missing):
+    monkeypatch.setenv("KMS_KEY_ID", "k")
+    monkeypatch.setenv("PEPPER_CIPHERTEXT", "c")
+    monkeypatch.setenv("REDIS_HOST", "r")
+    monkeypatch.delenv(missing)
+    with pytest.raises(SystemExit):
+        cli_module.main(["hash", "pw", "--salt", "01" * 16, "--cloud"])
