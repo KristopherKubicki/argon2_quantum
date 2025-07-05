@@ -71,6 +71,23 @@ cdk synth
 
 Deploy the stack using `cdk deploy` when you're ready.
 
+## Development
+
+Use Python 3.10 or newer. Install the hooks once:
+
+```bash
+pre-commit install
+```
+
+Run the hooks on changed files and execute tests before committing:
+
+```bash
+pre-commit run --files <files>
+pytest
+```
+
+Tools like `mypy` or `bandit` can optionally be run for extra checks.
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for
