@@ -89,6 +89,7 @@ class BraketBackend:
     """Backend fetching random bytes from AWS Braket."""
 
     device: Any | None = None
+    device_arn: str = "arn:aws:braket:::device/qpu/ionq/ionQdevice"
     num_bytes: int = 10
     _init_error: Exception | None = field(init=False, default=None)
 
@@ -100,7 +101,8 @@ class BraketBackend:
 
         Notes:
             ``self.device`` remains ``None`` when the SDK is missing and
-            :meth:`run` will raise :class:`RuntimeError`.
+            :meth:`run` will raise :class:`RuntimeError`. Set
+            ``device_arn`` to select a different quantum device.
         """
 
         if not isinstance(self.num_bytes, int) or self.num_bytes <= 0:
@@ -117,9 +119,7 @@ class BraketBackend:
                 return
 
             try:
-                self.device = AwsDevice(
-                    "arn:aws:braket:::device/qpu/ionq/ionQdevice"
-                )
+                self.device = AwsDevice(self.device_arn)
             except NoCredentialsError as exc:  # pragma: no cover - optional
                 logging.getLogger(__name__).error("AWS credentials missing: %s", exc)
                 self._init_error = exc
