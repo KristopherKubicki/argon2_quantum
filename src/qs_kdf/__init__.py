@@ -1,6 +1,13 @@
 """Quantum stretch KDF package."""
 
-from .cli import main as cli
+from pathlib import Path
+
+import tomllib
+
+_pyproject = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+with _pyproject.open("rb") as f:
+    __version__ = tomllib.load(f)["project"]["version"]
+
 from .core import (
     BraketBackend,
     LocalBackend,
@@ -9,6 +16,7 @@ from .core import (
     qstretch,
     verify_password,
 )
+from .cli import main as cli
 from .test_backend import TestBackend
 
 __all__ = [
@@ -20,4 +28,5 @@ __all__ = [
     "verify_password",
     "LocalBackend",
     "BraketBackend",
+    "__version__",
 ]

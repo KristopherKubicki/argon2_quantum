@@ -56,6 +56,14 @@ def _run_cli(argv: list[str]) -> str:
     return buf.getvalue().strip()
 
 
+def test_cli_version_flag(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli_module.main(["--version"])
+    assert exc.value.code == 0
+    captured = capsys.readouterr()
+    assert qs_kdf.__version__ in captured.out
+
+
 def test_cli_output_local():
     out = _run_cli(["hash", "pw", "--salt", "01" * 16])
     assert out
