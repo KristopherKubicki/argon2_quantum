@@ -86,8 +86,8 @@ class BraketBackend:
     def run(self, _seed: bytes) -> bytes:
         """Return ``num_bytes`` random bytes from Braket or fallback."""
 
+        backend = LocalBackend()
         if self.device is None:
-            backend = LocalBackend()
             return b"".join(
                 backend.run(_seed + i.to_bytes(1, "big")) for i in range(self.num_bytes)
             )
@@ -96,11 +96,14 @@ class BraketBackend:
 
         circuit = Circuit().h(range(8)).measure(range(8))
         result_bytes = bytearray()
-        for _ in range(self.num_bytes):
-            task = self.device.run(circuit, shots=1)
-            result = task.result()
-            bits = next(iter(result.measurement_counts))
-            result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
+        for i in range(self.num_bytes):
+            try:
+                task = self.device.run(circuit, shots=1)
+                result = task.result()
+                bits = next(iter(result.measurement_counts))
+                result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
+            except Exception:
+                result_bytes.extend(backend.run(_seed + i.to_bytes(1, "big")))
         return bytes(result_bytes)
 
 
@@ -185,12 +188,17 @@ class RedisCache:
         Returns:
             bytes: Cached or newly produced value.
         """
-
-        cached = self.client.get(key)
+        try:
+            cached = self.client.get(key)
+        except Exception:
+            cached = None
         if cached:
             return cached
         value = producer()
-        self.client.setex(key, ttl, value)
+        try:
+            self.client.setex(key, ttl, value)
+        except Exception:
+            pass
         return value
 
 
@@ -229,7 +237,6 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     import boto3  # type: ignore
     import redis  # type: ignore
     from braket.aws import AwsDevice  # type: ignore
-    from braket.circuits import Circuit  # type: ignore
 
     evt = event if isinstance(event, HashEvent) else HashEvent.from_dict(event)
     salt_hex = evt.salt
@@ -237,10 +244,14 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     kms_key = os.environ["KMS_KEY_ID"]
     cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
 
-    kms = boto3.client("kms")
-    pepper = kms.decrypt(KeyId=kms_key, CiphertextBlob=base64.b64decode(cipher_b64))[
-        "Plaintext"
-    ]
+    try:
+        kms = boto3.client("kms")
+        pepper = kms.decrypt(
+            KeyId=kms_key,
+            CiphertextBlob=base64.b64decode(cipher_b64),
+        )["Plaintext"]
+    except Exception:
+        return {"error": "kms decrypt failed"}
 
     r = redis.Redis(
         host=os.environ["REDIS_HOST"], port=int(os.environ.get("REDIS_PORT", "6379"))
@@ -250,16 +261,10 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     key = hashlib.sha256(seed).hexdigest()
 
     device = AwsDevice("arn:aws:braket:::device/quantum-simulator/amazon/sv1")
-    circuit = Circuit().h(range(8)).measure(range(8))
+    backend = BraketBackend(device=device)
 
-    def _producer():
-        result_bytes = bytearray()
-        for _ in range(10):
-            task = device.run(circuit, shots=1)
-            result = task.result()
-            bits = next(iter(result.measurement_counts))
-            result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
-        return bytes(result_bytes)
+    def _producer() -> bytes:
+        return backend.run(seed)
 
     quantum_bytes = cache.get_or_set(key, 120, _producer)
 

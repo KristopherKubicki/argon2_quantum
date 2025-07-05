@@ -6,6 +6,7 @@ from dataclasses import asdict
 
 import pytest
 
+import qs_kdf
 from qs_kdf.core import HashEvent, hash_password, lambda_handler
 
 
@@ -90,6 +91,36 @@ class FakeRedisModule:
     def Redis(self, host: str, port: int):
         assert host == "r"
         return self._client
+
+
+class FailingRedisClient(FakeRedisClient):
+    def __init__(self, fail_get: bool = False, fail_set: bool = False) -> None:
+        super().__init__()
+        self.fail_get = fail_get
+        self.fail_set = fail_set
+
+    def get(self, key: str):
+        if self.fail_get:
+            raise Exception("boom")
+        return super().get(key)
+
+    def setex(self, key: str, ttl: int, value: bytes):
+        if self.fail_set:
+            raise Exception("boom")
+        super().setex(key, ttl, value)
+
+
+class FailingBraketDevice(FakeBraketDevice):
+    def run(self, circuit, shots: int):
+        raise Exception("boom")
+
+
+class FailingKMS:
+    decrypt_called = 0
+
+    def decrypt(self, *args, **kwargs):
+        self.decrypt_called += 1
+        raise Exception("boom")
 
 
 @pytest.fixture()
@@ -183,3 +214,60 @@ def test_lambda_handler_missing_env(monkeypatch, var, _env):
     monkeypatch.delenv(var, raising=False)
     with pytest.raises(KeyError):
         lambda_handler(asdict(HashEvent(password="pw", salt="22" * 16)), None)
+
+
+def test_lambda_handler_kms_failure(monkeypatch, _env):
+    kms = FailingKMS()
+    device = FakeBraketDevice("00000000")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="00" * 16))
+    result = lambda_handler(event, None)
+
+    assert result == {"error": "kms decrypt failed"}
+    assert kms.decrypt_called == 1
+
+
+def test_lambda_handler_braket_failure(monkeypatch, _env):
+    pepper = b"pepper"
+    kms = FakeKMS(pepper, b"cipher")
+    device = FailingBraketDevice("00000000")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="33" * 16))
+    result = lambda_handler(event, None)
+
+    seed = bytes.fromhex(event["salt"])
+    quantum = qs_kdf.BraketBackend(device=None).run(seed)
+    assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
+
+
+def test_lambda_handler_redis_get_error(monkeypatch, _env):
+    pepper = b"pepper"
+    kms = FakeKMS(pepper, b"cipher")
+    device = FakeBraketDevice("10101010")
+    redis_client = FailingRedisClient(fail_get=True)
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="44" * 16))
+    result = lambda_handler(event, None)
+
+    quantum = b"\xaa" * 10
+    assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
+    assert redis_client.set_calls
+
+
+def test_lambda_handler_redis_set_error(monkeypatch, _env):
+    pepper = b"pepper"
+    kms = FakeKMS(pepper, b"cipher")
+    device = FakeBraketDevice("10101010")
+    redis_client = FailingRedisClient(fail_set=True)
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="55" * 16))
+    result = lambda_handler(event, None)
+
+    quantum = b"\xaa" * 10
+    assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
