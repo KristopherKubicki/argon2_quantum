@@ -19,14 +19,19 @@ class DummyBackend:
 
 
 class FakeKMS:
-    def __init__(self, pepper: bytes, cipher: bytes) -> None:
+    def __init__(
+        self, pepper: bytes, cipher: bytes, error: Exception | None = None
+    ) -> None:
         self.pepper = pepper
         self.cipher = cipher
         self.decrypt_called = 0
+        self.error = error
 
     def decrypt(self, KeyId: str, CiphertextBlob: bytes):
         self.decrypt_called += 1
         assert CiphertextBlob == self.cipher
+        if self.error:
+            raise self.error
         return {"Plaintext": self.pepper}
 
 
@@ -227,3 +232,26 @@ def test_lambda_handler_unverified_tls(monkeypatch, _env):
     lambda_handler(event, None)
 
     assert redis_module.ssl_cert_reqs is None
+
+
+def test_lambda_handler_bad_cipher(monkeypatch, _env):
+    monkeypatch.setenv("PEPPER_CIPHERTEXT", "%%%")
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="55" * 16))
+    with pytest.raises(RuntimeError, match="decode"):
+        lambda_handler(event, None)
+
+
+def test_lambda_handler_kms_error(monkeypatch, _env):
+    kms = FakeKMS(b"pepper", b"cipher", error=RuntimeError("nope"))
+    device = FakeBraketDevice("10101010")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="66" * 16))
+    with pytest.raises(RuntimeError, match="KMS decryption failed"):
+        lambda_handler(event, None)

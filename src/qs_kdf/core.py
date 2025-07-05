@@ -9,12 +9,13 @@ pepper into stable digests.
 """
 
 import base64
+import binascii
 import hashlib
-import os
-import ssl
-import secrets
-import threading
 import logging
+import os
+import secrets
+import ssl
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
@@ -128,8 +129,9 @@ class BraketBackend:
 
         if self.device is None:
             try:
+                from botocore.exceptions import \
+                    NoCredentialsError  # type: ignore
                 from braket.aws import AwsDevice  # type: ignore
-                from botocore.exceptions import NoCredentialsError  # type: ignore
             except ImportError as exc:  # pragma: no cover - optional
                 logging.getLogger(__name__).error("Braket import failed: %s", exc)
                 self._init_error = exc
@@ -363,9 +365,17 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
 
     kms = boto3.client("kms")
-    pepper = kms.decrypt(KeyId=kms_key, CiphertextBlob=base64.b64decode(cipher_b64))[
-        "Plaintext"
-    ]
+    try:
+        cipher = base64.b64decode(cipher_b64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise RuntimeError("failed to decode pepper ciphertext") from exc
+
+    try:
+        pepper_resp = kms.decrypt(KeyId=kms_key, CiphertextBlob=cipher)
+    except Exception as exc:  # pragma: no cover - boto3 errors
+        raise RuntimeError(f"KMS decryption failed: {exc}") from exc
+
+    pepper = pepper_resp["Plaintext"]
 
     redis_opts = {
         "host": os.environ["REDIS_HOST"],
@@ -398,16 +408,12 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     device_arn = (
         getattr(evt, "device_arn", None)
         if isinstance(event, HashEvent)
-        else event.get("device_arn")
-        if isinstance(event, Mapping)
-        else None
+        else event.get("device_arn") if isinstance(event, Mapping) else None
     )
     num_bytes = (
         getattr(evt, "num_bytes", None)
         if isinstance(event, HashEvent)
-        else event.get("num_bytes")
-        if isinstance(event, Mapping)
-        else None
+        else event.get("num_bytes") if isinstance(event, Mapping) else None
     )
     if num_bytes is not None:
         num_bytes = int(num_bytes)
