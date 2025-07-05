@@ -73,6 +73,12 @@ def test_cli_output_cloud(monkeypatch):
     assert out == "deadbeef"
 
 
+def test_cli_prompt_hash(monkeypatch):
+    monkeypatch.setattr(cli_module.getpass, "getpass", lambda _p: "pw")
+    out = _run_cli(["hash", "--salt", "01" * 16])
+    assert out
+
+
 def test_timing_attack():
     salt = b"\x02" * 16
     backend = qs_kdf.TestBackend()
@@ -125,6 +131,17 @@ def test_cli_verify_nope():
         ]
     )
     assert out == "NOPE"
+
+
+def test_cli_prompt_verify(monkeypatch):
+    backend = qs_kdf.LocalBackend()
+    salt = b"\x06" * 16
+    digest = qs_kdf.hash_password("pw", salt, backend=backend)
+    monkeypatch.setattr(cli_module.getpass, "getpass", lambda _p: "pw")
+    out = _run_cli(
+        ["verify", "--salt", "06" * 16, "--digest", digest.hex()]
+    )
+    assert out == "OK"
 
 
 def test_braket_backend(monkeypatch):

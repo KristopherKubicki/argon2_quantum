@@ -33,12 +33,14 @@ Install dependencies and run the CLI to hash a password with a hex salt.
 ```bash
 pip install .
 python -m qs_kdf hash mypassword --salt deadbeefcafebabe
+# omit the password to be prompted securely
 ```
 
 The output digest can later be verified with the `verify` subcommand:
 
 ```bash
 python -m qs_kdf verify mypassword --salt deadbeefcafebabe --digest <hex>
+# omit the password to be prompted securely
 ```
 
 Running without `--cloud` keeps all computation local using the built-in

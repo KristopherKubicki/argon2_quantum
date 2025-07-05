@@ -20,6 +20,7 @@ pip install .
 
 ```bash
 python -m qs_kdf hash "hunter2" --salt 0011223344556677
+# omit the password to be prompted securely
 ```
 
 By default the command uses a local simulator backend and requires no AWS
@@ -53,6 +54,7 @@ executing the command.
 
 ```bash
 python -m qs_kdf verify "hunter2" --salt 0011223344556677 --digest <hex>
+# omit the password to be prompted securely
 ```
 
 `verify` exits with the digest result printed to stdout (`OK` or `NOPE`).
