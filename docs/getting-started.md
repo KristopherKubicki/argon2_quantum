@@ -53,7 +53,8 @@ In this demo it returns a fixed value but shows how the API would be used in
 production.
 
 The repository ships with a static 32-byte pepper used for these examples.
-Replace it with your own secret when deploying.
+Set ``QS_PEPPER`` to override it when running locally and replace it with your
+own secret when deploying.
 
 Passwords longer than 64 bytes or salts over 32 bytes are rejected by both
 the CLI and Lambda handler to keep memory usage predictable.
@@ -63,7 +64,8 @@ the CLI and Lambda handler to keep memory usage predictable.
 The CLI defaults to the ``LocalBackend`` which slices a SHA‑512 digest of the
 stretched password to produce ten deterministic bytes. This allows repeatable
 hashing and verification without any AWS credentials. Use this mode for local
-tests or CI runs.
+tests or CI runs. Set ``QS_PEPPER`` to your 32-byte secret so the hash matches
+production behavior.
 
 ### Cloud mode
 
@@ -135,11 +137,14 @@ Follow these steps to provision the cloud resources:
    export PEPPER_CIPHERTEXT=<base64-ciphertext>
    export REDIS_HOST=<redis-endpoint>
    export REDIS_PORT=6379  # optional when using the default port
+   export REDIS_TLS=1      # disable with 0/false/no
    export REDIS_CERT_REQS=required  # none|optional|required
    ```
 
-``REDIS_CERT_REQS`` defaults to ``required``. Set it to ``none`` to skip
-verification or ``optional`` to keep TLS active when verification fails.
+``REDIS_TLS`` defaults to ``1``. Disabling TLS is strongly discouraged.
+``REDIS_CERT_REQS`` defaults to ``required``. Setting it to ``none`` skips
+certificate verification and is unsafe outside tests. ``optional`` allows
+failures while keeping TLS enabled.
 
 The random bytes are fetched from AWS Braket by running a tiny circuit. Ensure
 your credentials permit Braket execution. See the
