@@ -120,17 +120,22 @@ def test_cli_verify_nope():
     backend = qs_kdf.LocalBackend()
     salt = b"\x05" * 16
     qs_kdf.hash_password("pw", salt, backend=backend)
-    out = _run_cli(
-        [
-            "verify",
-            "pw",
-            "--salt",
-            "05" * 16,
-            "--digest",
-            "00" * 32,
-        ]
-    )
-    assert out == "NOPE"
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), pytest.raises(SystemExit) as excinfo:
+        raise SystemExit(
+            cli_module.main(
+                [
+                    "verify",
+                    "pw",
+                    "--salt",
+                    "05" * 16,
+                    "--digest",
+                    "00" * 32,
+                ]
+            )
+        )
+    assert buf.getvalue().strip() == "NOPE"
+    assert excinfo.value.code == 1
 
 
 def test_cli_prompt_verify(monkeypatch):

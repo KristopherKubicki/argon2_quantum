@@ -16,7 +16,7 @@ def main(argv: list[str] | None = None) -> int:
         argv: Optional list of command-line arguments.
 
     Returns:
-        int: ``0`` on success.
+        int: ``0`` on success, ``1`` when password verification fails.
     """
 
     parser = argparse.ArgumentParser(prog="qs_kdf")
@@ -69,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         backend = LocalBackend()
         ok = verify_password(password, salt, digest, backend=backend)
         print("OK" if ok else "NOPE")
+        return 0 if ok else 1
     return 0
 
 

@@ -3,95 +3,65 @@
 [![CI](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml/badge.svg)](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/KristopherKubicki/argon2_quantum/graph/badge.svg?token=JuPPmkMFxR)](https://codecov.io/gh/KristopherKubicki/argon2_quantum)
 
-This project demonstrates a quantum inspired pre-hash using ten random bytes.
-The bytes come from running a tiny qubit circuit via AWS Braket. By default the
-circuit executes on real quantum hardware, though the managed simulator is also
-available. The output then seeds a classic memory-hard KDF.
+**Quantum-enhanced Argon2 with a dash of real qubits.** The library fetches ten bytes of entropy from AWS Braket and folds them into the salt before running a classic Argon2 hash. The approach increases the cost of large-scale offline attacks, though it is *not* a post‑quantum scheme.
+
+## Table of Contents
+- [Background](#background)
+- [Quick Start](#quick-start)
+- [Infrastructure](#infrastructure)
+- [Development](#development)
+- [License](#license)
+
+## Background
+This project demonstrates a minimal "quantum stretch". A tiny circuit runs on managed quantum hardware or the simulator and returns ten truly random bytes. These bytes are appended to your chosen salt and fed into a normal Argon2 hashing step. The extra call to Braket raises the attacker's cost because each password guess must repeat the service call.
 
 > **Security Notice**
-> 
-> The approach only raises the cost of classical offline attacks. It does
-> **not** provide post-quantum security.
+> The quantum stretch slows classical brute force attempts but offers no resistance once large fault‑tolerant quantum computers exist.
 
-## ELI5
-
-Imagine you want to lock your cookie jar with a secret code. This project adds
-a tiny piece of random "sprinkle" from the cloud before scrambling the code
-with Argon2. The sprinkle slows down classical attackers but offers no
-resistance once quantum computers arrive.
-
-## Getting Started
-
-### Prerequisites
-
-- An AWS account with permissions to create Lambda, KMS and Braket resources via CDK or Terraform.
-- Configured IAM credentials using the [AWS CLI](https://docs.aws.amazon.com/cli/).
-
-Install dependencies and run the CLI to hash a password with a hex salt.
-`argon2-cffi` is required and will be installed automatically:
-
+## Quick Start
+### Installation
 ```bash
-pip install .
+pip install . 
 python -m qs_kdf hash mypassword --salt deadbeefcafebabe
 # omit the password to be prompted securely
 ```
 
-The output digest can later be verified with the `verify` subcommand:
-
+### Hash a password
 ```bash
 python -m qs_kdf verify mypassword --salt deadbeefcafebabe --digest <hex>
 # omit the password to be prompted securely
 ```
 
-Running without `--cloud` keeps all computation local using the built-in
-simulator backend.
-
-The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) can be deployed
-with a single command:
-
+The digest can be verified later:
 ```bash
-cd infra && cdk deploy
+python -m qs_kdf verify "mypassword" --salt deadbeefcafebabe --digest <hex>
 ```
 
-or using Terraform:
-
-```bash
-terraform -chdir=terraform apply
-```
-
-For an overview of the approach and more deployment tips see the documents in
-[`docs/`](docs/).
+Running without `--cloud` keeps everything local using the built-in simulator. For a deeper walkthrough see [docs/getting-started.md](docs/getting-started.md).
 
 ## Infrastructure
-
-The AWS resources are defined with the CDK in [`infra/`](infra/). Validate the
-stack locally with:
-
+The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) deploys the Lambda function, KMS key and supporting resources. Validate locally:
 ```bash
 cd infra
 cdk synth
 ```
-
-Deploy the stack using `cdk deploy` when you're ready.
+Deploy with `cdk deploy` or use the included Terraform module:
+```bash
+terraform -chdir=terraform apply
+```
+More background is available in the documents under [`docs/`](docs/).
 
 ## Development
-
 Use Python 3.10 or newer. Install the hooks once:
-
 ```bash
 pre-commit install
 ```
-
-Run the hooks on changed files and execute tests before committing:
-
+Run the hooks and tests before committing:
 ```bash
 pre-commit run --files <files>
 pytest
 ```
-
-Tools like `mypy` or `bandit` can optionally be run for extra checks.
+Extra checks such as `mypy` or `bandit` are optional but recommended.
 
 ## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for
-details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
