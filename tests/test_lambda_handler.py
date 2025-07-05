@@ -162,6 +162,17 @@ def test_lambda_handler_cache_hit(monkeypatch, _env):
     assert not redis_client.set_calls
 
 
+def test_lambda_handler_invalid_salt(monkeypatch, _env):
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    redis_client = FakeRedisClient()
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = {"password": "pw", "salt": "zz"}
+    with pytest.raises(ValueError):
+        lambda_handler(event, None)
+
+
 @pytest.mark.parametrize("var", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
 def test_lambda_handler_missing_env(monkeypatch, var, _env):
     redis_client = FakeRedisClient()

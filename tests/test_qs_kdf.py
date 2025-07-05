@@ -78,6 +78,23 @@ def test_cli_verify():
     assert out == "OK"
 
 
+def test_cli_verify_nope():
+    backend = qs_kdf.LocalBackend()
+    salt = b"\x05" * 16
+    qs_kdf.hash_password("pw", salt, backend=backend)
+    out = _run_cli(
+        [
+            "verify",
+            "pw",
+            "--salt",
+            "05" * 16,
+            "--digest",
+            "00" * 32,
+        ]
+    )
+    assert out == "NOPE"
+
+
 def test_braket_backend(monkeypatch):
     class FakeCircuit:
         def h(self, *args, **kwargs):
