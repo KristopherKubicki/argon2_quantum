@@ -8,3 +8,8 @@ fault-tolerant QPUs exist the advantage disappears.
 A two-hash migration stores both the classical digest and the quantum-extended
 version. The extra step can later be removed without requiring all users to
 reset their passwords.
+
+During rollout, append the quantum digest whenever credentials are updated.
+Verification should gracefully fall back to standard Argon2 hashing if the
+quantum step cannot run, allowing operation in offline or restricted
+environments.
