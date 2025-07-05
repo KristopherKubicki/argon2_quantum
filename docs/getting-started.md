@@ -16,6 +16,23 @@ pip install .
 # argon2-cffi is installed as a required dependency
 ```
 
+### Docker
+
+Build the container image from the project root:
+
+```bash
+docker build -t qs_kdf .
+```
+
+Run the CLI by passing arguments to `docker run`:
+
+```bash
+docker run --rm qs_kdf hash "hunter2" --salt 0011223344556677
+```
+
+The image installs the package and exposes the ``qs_kdf`` command as the
+entrypoint. Additional flags such as ``--cloud`` are forwarded unchanged.
+
 ## Hash a Password
 
 ```bash
