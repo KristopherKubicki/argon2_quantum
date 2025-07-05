@@ -101,6 +101,9 @@ class BraketBackend:
             :meth:`run` will raise :class:`RuntimeError`.
         """
 
+        if not isinstance(self.num_bytes, int) or self.num_bytes <= 0:
+            raise ValueError("num_bytes must be a positive integer")
+
         if self.device is None:
             try:
                 from braket.aws import AwsDevice  # type: ignore
