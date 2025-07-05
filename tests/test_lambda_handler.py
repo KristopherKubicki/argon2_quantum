@@ -210,3 +210,51 @@ def test_lambda_handler_redis_options(monkeypatch, _env):
 
     assert redis_module.password == "secret"
     assert redis_module.ssl is True
+
+
+@pytest.mark.parametrize("event", [42, ["pw"], None])
+def test_lambda_handler_non_mapping(monkeypatch, _env, event):
+    """lambda_handler rejects non-mapping events."""
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    with pytest.raises(TypeError):
+        lambda_handler(event, None)
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"salt": "10" * 16},
+        {"password": "pw"},
+    ],
+)
+def test_lambda_handler_missing_field(monkeypatch, _env, event):
+    """lambda_handler rejects events missing required fields."""
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    with pytest.raises(KeyError):
+        lambda_handler(event, None)
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"password": 123, "salt": "11" * 16},
+        {"password": "pw", "salt": 456},
+    ],
+)
+def test_lambda_handler_non_string(monkeypatch, _env, event):
+    """lambda_handler rejects non-string password or salt."""
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("00000000")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    with pytest.raises(TypeError):
+        lambda_handler(event, None)
