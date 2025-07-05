@@ -5,7 +5,7 @@ retrieved from AWS Braket followed by a classic memory-hard KDF. The quantum
 step executes a simple circuit on the managed simulator.
 
 > **Security Notice**
-> 
+>
 > The approach only raises the cost of classical offline attacks. It does
 > **not** provide post-quantum security.
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+
 try:
     from argon2.low_level import Type, hash_secret_raw
 except Exception as exc:  # pragma: no cover - enforce dependency

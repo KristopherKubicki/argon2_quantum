@@ -8,11 +8,11 @@ latency acceptable for interactive logins.
 
 ## Failure Modes
 
-* **Braket Timeout**: Step Function enforces a 200 ms deadline and falls back to
+- **Braket Timeout**: Step Function enforces a 200 ms deadline and falls back to
   a deterministic slice when exceeded.
-* **Braket Failure**: Lambda returns an error; monitoring via CloudWatch.
-* **Redis Unavailable**: Lambda proceeds without cache and stores result when
-possible.
+- **Braket Failure**: Lambda returns an error; monitoring via CloudWatch.
+- **Redis Unavailable**: Lambda proceeds without cache and stores result when
+  possible.
 
 ## Two-Hash Migration
 

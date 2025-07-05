@@ -2,11 +2,11 @@
 
 ## Threat Model
 
-| Actor         | Capability               | Mitigation                     |
-|---------------|-------------------------|--------------------------------|
-| Offline brute | Tries to guess passwords| Quantum stretch + Argon2       |
-| Insider       | Reads DB and cache      | KMS protected pepper           |
-| Network       | Snoops traffic          | TLS enforced by API Gateway    |
+| Actor         | Capability               | Mitigation                  |
+| ------------- | ------------------------ | --------------------------- |
+| Offline brute | Tries to guess passwords | Quantum stretch + Argon2    |
+| Insider       | Reads DB and cache       | KMS protected pepper        |
+| Network       | Snoops traffic           | TLS enforced by API Gateway |
 
 The quantum byte is fetched from AWS Braket in production or generated locally
 during development. This makes brute-force attempts expensive because each
