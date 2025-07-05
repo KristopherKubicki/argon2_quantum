@@ -1,9 +1,12 @@
+import argparse
 import contextlib
 import importlib
 import io
-import time
 import sys
+import time
 import types
+
+import pytest
 
 import qs_kdf
 
@@ -115,3 +118,13 @@ def test_braket_backend(monkeypatch):
     backend2 = qs_kdf.BraketBackend(device=FakeDevice("01000010"), num_bytes=2)
     result2 = backend2.run(b"seed")
     assert result2 == b"\x42\x42"
+
+
+def test_cli_invalid_salt():
+    with pytest.raises(argparse.ArgumentTypeError):
+        cli_module.main(["hash", "pw", "--salt", "zz"])
+
+
+def test_cli_invalid_digest():
+    with pytest.raises(argparse.ArgumentTypeError):
+        cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])

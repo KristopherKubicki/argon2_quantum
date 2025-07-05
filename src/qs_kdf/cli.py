@@ -17,7 +17,12 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--digest", required=True)
 
     args = parser.parse_args(argv)
-    salt = bytes.fromhex(args.salt)
+    try:
+        salt = bytes.fromhex(args.salt)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"invalid hex value for --salt: {args.salt}"
+        ) from exc
     if args.cmd == "hash":
         if args.cloud:
             response = lambda_handler(
@@ -29,7 +34,12 @@ def main(argv: list[str] | None = None) -> int:
             digest_hex = hash_password(args.password, salt, backend=backend).hex()
         print(digest_hex)
     else:
-        digest = bytes.fromhex(args.digest)
+        try:
+            digest = bytes.fromhex(args.digest)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"invalid hex value for --digest: {args.digest}"
+            ) from exc
         backend = LocalBackend()
         ok = verify_password(args.password, salt, digest, backend=backend)
         print("OK" if ok else "NOPE")
