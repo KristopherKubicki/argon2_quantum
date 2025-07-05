@@ -3,6 +3,8 @@
 import argparse
 import os
 
+import qs_kdf
+
 from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES
 
 from .core import LocalBackend, hash_password, lambda_handler, verify_password
@@ -19,6 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     """
 
     parser = argparse.ArgumentParser(prog="qs_kdf")
+    parser.add_argument("--version", action="version", version=qs_kdf.__version__)
     sub = parser.add_subparsers(dest="cmd", required=True)
     h = sub.add_parser("hash")
     h.add_argument("password")
