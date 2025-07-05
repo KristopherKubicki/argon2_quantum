@@ -12,6 +12,7 @@ source venv/bin/activate
 UV_ARGS="--no-index --find-links=/opt/wheels"
 
 uv pip install ${UV_ARGS} -r requirements.txt
+uv pip install ${UV_ARGS} -r requirements-dev.txt
 uv pip install ${UV_ARGS} -r infra/requirements.txt
 uv pip install ${UV_ARGS} -e .
 uv pip install ${UV_ARGS} pre-commit
