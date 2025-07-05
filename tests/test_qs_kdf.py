@@ -194,6 +194,63 @@ def test_braket_backend(monkeypatch):
     assert device2.run_shots == [2]
 
 
+def test_braket_backend_device_arn(monkeypatch):
+    class FakeCircuit:
+        def h(self, *args, **kwargs):
+            return self
+
+        def measure(self, *args, **kwargs):
+            return self
+
+    class FakeResult:
+        def __init__(self, bits: str, shots: int) -> None:
+            self.measurement_counts = {bits: shots}
+
+    class FakeTask:
+        def __init__(self, bits: str, shots: int) -> None:
+            self._bits = bits
+            self._shots = shots
+
+        def result(self):
+            return FakeResult(self._bits, self._shots)
+
+    class FakeDevice:
+        def __init__(self, bits: str) -> None:
+            self.bits = bits
+            self.run_shots: list[int] = []
+
+        def run(self, circuit, shots: int):
+            self.run_shots.append(shots)
+            return FakeTask(self.bits, shots)
+
+    captured: dict[str, str] = {}
+
+    def fake_aws_device(arn: str) -> FakeDevice:
+        captured["arn"] = arn
+        return FakeDevice("01000010")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.circuits",
+        types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.aws",
+        types.SimpleNamespace(AwsDevice=fake_aws_device),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
+
+    backend = qs_kdf.BraketBackend(device=None, device_arn="arn:custom")
+    result = backend.run(b"seed")
+    assert result == b"\x42" * 10
+    assert captured["arn"] == "arn:custom"
+
+
 def test_braket_backend_count_mismatch(monkeypatch):
     class FakeCircuit:
         def h(self, *args, **kwargs):

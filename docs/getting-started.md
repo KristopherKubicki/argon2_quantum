@@ -123,4 +123,5 @@ Follow these steps to provision the cloud resources:
 The random bytes are fetched from AWS Braket by running a tiny circuit. Ensure
 your credentials permit Braket execution. See the
 [Braket documentation](https://docs.aws.amazon.com/braket/)
-for further details.
+for further details. ``BraketBackend`` uses the IonQ device by default but you
+may pass ``device_arn`` to select a different ARN.

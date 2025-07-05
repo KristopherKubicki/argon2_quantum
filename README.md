@@ -44,6 +44,9 @@ $ python -m qs_kdf hash mypassword
 Running without `--cloud` keeps all computation local using the built-in
 simulator backend.
 
+The ``BraketBackend`` defaults to the IonQ QPU but accepts a ``device_arn``
+parameter if you wish to target a different device.
+
 The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) can be deployed
 with a single command:
 
