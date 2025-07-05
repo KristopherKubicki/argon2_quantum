@@ -138,13 +138,12 @@ Follow these steps to provision the cloud resources:
    export REDIS_HOST=<redis-endpoint>
    export REDIS_PORT=6379  # optional when using the default port
    export REDIS_TLS=1      # disable with 0/false/no
-   export REDIS_CERT_REQS=required  # none|optional|required
+   export REDIS_CERT_REQS=required  # optional|required
    ```
 
 ``REDIS_TLS`` defaults to ``1``. Disabling TLS is strongly discouraged.
-``REDIS_CERT_REQS`` defaults to ``required``. Setting it to ``none`` skips
-certificate verification and is unsafe outside tests. ``optional`` allows
-failures while keeping TLS enabled.
+``REDIS_CERT_REQS`` defaults to ``required``. ``optional`` allows failures
+while keeping TLS enabled. Unverified TLS is no longer supported.
 
 The random bytes are fetched from AWS Braket by running a tiny circuit. Ensure
 your credentials permit Braket execution. See the

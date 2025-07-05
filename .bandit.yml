@@ -1,4 +1,4 @@
 ---
 exclude:
   - tests
-severity: high
+severity: low
