@@ -5,7 +5,7 @@ import secrets
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 
-from .constants import PEPPER
+DEFAULT_QSTRETCH_PEPPER = b"fixedPepper32B012345678901234567"  # 32 bytes used for demo
 
 _warmed_up = False
 
@@ -56,7 +56,9 @@ class LocalBackend:
         return digest[:10]
 
 
-def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
+def qstretch(
+    password: str, salt: bytes, pepper: bytes = DEFAULT_QSTRETCH_PEPPER
+) -> bytes:
     """Return 256-bit stretched digest using a double hash."""
     data = password.encode() + salt + pepper
     digest = hashlib.sha512(data).digest()
@@ -108,7 +110,8 @@ def hash_password(
     password: str,
     salt: bytes,
     backend: Backend | None = None,
-    pepper: bytes | None = None,
+    *,
+    pepper: bytes,
 ) -> bytes:
     """Compute Argon2id digest with quantum salt bytes.
 
@@ -116,7 +119,7 @@ def hash_password(
         password: Password string to hash.
         salt: Salt bytes.
         backend: Backend providing quantum randomness.
-        pepper: Optional pepper value.
+        pepper: Pepper value used as additional secret.
 
     Returns:
         bytes: Final digest bytes.
@@ -124,8 +127,6 @@ def hash_password(
     _warm_up()
     if backend is None:
         backend = LocalBackend()
-    if pepper is None:
-        pepper = PEPPER
     pre = hashlib.sha512(password.encode() + salt + pepper).digest()
     quantum = backend.run(pre)
     new_salt = salt + quantum
@@ -146,7 +147,8 @@ def verify_password(
     salt: bytes,
     digest: bytes,
     backend: Backend | None = None,
-    pepper: bytes | None = None,
+    *,
+    pepper: bytes,
 ) -> bool:
     """Check that password and salt produce ``digest``.
 
@@ -155,7 +157,7 @@ def verify_password(
         salt: Original salt bytes.
         digest: Expected digest bytes.
         backend: Backend providing quantum randomness.
-        pepper: Optional pepper value.
+        pepper: Pepper value used as additional secret.
 
     Returns:
         bool: ``True`` on match, ``False`` otherwise.

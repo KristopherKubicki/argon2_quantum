@@ -10,13 +10,15 @@ import pytest
 
 import qs_kdf
 
+PEPPER = b"p" * 32
+
 cli_module = importlib.import_module("qs_kdf.cli")
 
 
 def test_hash_password_length():
     salt = b"\x01" * 16
     backend = qs_kdf.TestBackend()
-    digest = qs_kdf.hash_password("pw", salt, backend=backend)
+    digest = qs_kdf.hash_password("pw", salt, backend=backend, pepper=PEPPER)
     assert len(digest) == 32
 
 
@@ -28,7 +30,7 @@ def _run_cli(argv: list[str]) -> str:
 
 
 def test_cli_output_local():
-    out = _run_cli(["hash", "pw", "--salt", "01" * 16])
+    out = _run_cli(["hash", "pw", "--salt", "01" * 16, "--pepper", PEPPER.hex()])
     assert out
 
 
@@ -45,10 +47,10 @@ def test_timing_attack():
     salt = b"\x02" * 16
     backend = qs_kdf.TestBackend()
     start_good = time.perf_counter()
-    qs_kdf.hash_password("pw", salt, backend=backend)
+    qs_kdf.hash_password("pw", salt, backend=backend, pepper=PEPPER)
     good = time.perf_counter() - start_good
     start_bad = time.perf_counter()
-    qs_kdf.hash_password("bad", salt, backend=backend)
+    qs_kdf.hash_password("bad", salt, backend=backend, pepper=PEPPER)
     bad = time.perf_counter() - start_bad
     assert abs(good - bad) <= 0.1
 
@@ -56,15 +58,17 @@ def test_timing_attack():
 def test_verify_password():
     salt = b"\x03" * 16
     backend = qs_kdf.TestBackend()
-    digest = qs_kdf.hash_password("pw", salt, backend=backend)
-    assert qs_kdf.verify_password("pw", salt, digest, backend=backend)
-    assert not qs_kdf.verify_password("bad", salt, digest, backend=backend)
+    digest = qs_kdf.hash_password("pw", salt, backend=backend, pepper=PEPPER)
+    assert qs_kdf.verify_password("pw", salt, digest, backend=backend, pepper=PEPPER)
+    assert not qs_kdf.verify_password(
+        "bad", salt, digest, backend=backend, pepper=PEPPER
+    )
 
 
 def test_cli_verify():
     backend = qs_kdf.LocalBackend()
     salt = b"\x04" * 16
-    digest = qs_kdf.hash_password("pw", salt, backend=backend)
+    digest = qs_kdf.hash_password("pw", salt, backend=backend, pepper=PEPPER)
     out = _run_cli(
         [
             "verify",
@@ -73,6 +77,8 @@ def test_cli_verify():
             "04" * 16,
             "--digest",
             digest.hex(),
+            "--pepper",
+            PEPPER.hex(),
         ]
     )
     assert out == "OK"
@@ -81,7 +87,7 @@ def test_cli_verify():
 def test_cli_verify_nope():
     backend = qs_kdf.LocalBackend()
     salt = b"\x05" * 16
-    qs_kdf.hash_password("pw", salt, backend=backend)
+    qs_kdf.hash_password("pw", salt, backend=backend, pepper=PEPPER)
     out = _run_cli(
         [
             "verify",
@@ -90,6 +96,8 @@ def test_cli_verify_nope():
             "05" * 16,
             "--digest",
             "00" * 32,
+            "--pepper",
+            PEPPER.hex(),
         ]
     )
     assert out == "NOPE"
@@ -139,9 +147,20 @@ def test_braket_backend(monkeypatch):
 
 def test_cli_invalid_salt():
     with pytest.raises(argparse.ArgumentTypeError):
-        cli_module.main(["hash", "pw", "--salt", "zz"])
+        cli_module.main(["hash", "pw", "--salt", "zz", "--pepper", PEPPER.hex()])
 
 
 def test_cli_invalid_digest():
     with pytest.raises(argparse.ArgumentTypeError):
-        cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
+        cli_module.main(
+            [
+                "verify",
+                "pw",
+                "--salt",
+                "01" * 16,
+                "--digest",
+                "zz",
+                "--pepper",
+                PEPPER.hex(),
+            ]
+        )

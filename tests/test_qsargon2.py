@@ -1,5 +1,7 @@
 import qs_kdf
 
+PEPPER = b"p" * 32
+
 
 def test_qstretch_deterministic():
     salt = b"\x00" * 16
@@ -11,5 +13,5 @@ def test_qstretch_deterministic():
 
 def test_hash_password_length():
     salt = b"\x01" * 16
-    digest = qs_kdf.hash_password("pw", salt)
+    digest = qs_kdf.hash_password("pw", salt, pepper=PEPPER)
     assert len(digest) == 32

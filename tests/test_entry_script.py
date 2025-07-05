@@ -6,6 +6,8 @@ import sys
 
 import qsargon2
 
+PEPPER = b"p" * 32
+
 
 def _run_cli(argv: list[str]) -> str:
     buf = io.StringIO()
@@ -22,7 +24,9 @@ def _run_cli(argv: list[str]) -> str:
 def test_entry_script_deterministic():
     salt = b"\x05" * 16
     salt_hex = salt.hex()
-    out1 = _run_cli(["pw", "--salt", salt_hex])
-    out2 = _run_cli(["pw", "--salt", salt_hex])
-    expected = base64.b64encode(qsargon2.hash_password("pw", salt)).decode()
+    out1 = _run_cli(["pw", "--salt", salt_hex, "--pepper", PEPPER.hex()])
+    out2 = _run_cli(["pw", "--salt", salt_hex, "--pepper", PEPPER.hex()])
+    expected = base64.b64encode(
+        qsargon2.hash_password("pw", salt, pepper=PEPPER)
+    ).decode()
     assert out1 == out2 == expected
