@@ -143,7 +143,10 @@ class BraketBackend:
                 msg += f": {self._init_error}"
             raise RuntimeError(msg)
 
-        from braket.circuits import Circuit  # type: ignore
+        try:
+            from braket.circuits import Circuit  # type: ignore
+        except ImportError as exc:  # pragma: no cover - optional
+            raise RuntimeError("Braket backend unavailable") from exc
 
         circuit = Circuit().h(range(8)).measure(range(8))
         task = self.device.run(circuit, shots=self.num_bytes)
