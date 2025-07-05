@@ -5,7 +5,16 @@ import os
 
 import qs_kdf
 
-from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES
+from .constants import (
+    MAX_PASSWORD_BYTES,
+    MAX_SALT_BYTES,
+    MIN_TIME_COST,
+    MAX_TIME_COST,
+    MIN_MEMORY_COST,
+    MAX_MEMORY_COST,
+    MIN_PARALLELISM,
+    MAX_PARALLELISM,
+)
 
 from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
@@ -59,6 +68,18 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"password exceeds {MAX_PASSWORD_BYTES} bytes")
     if len(salt) > MAX_SALT_BYTES:
         parser.error(f"salt exceeds {MAX_SALT_BYTES} bytes")
+    if not (MIN_TIME_COST <= args.time_cost <= MAX_TIME_COST):
+        parser.error(
+            f"--time-cost must be between {MIN_TIME_COST} and {MAX_TIME_COST}"
+        )
+    if not (MIN_MEMORY_COST <= args.memory_cost <= MAX_MEMORY_COST):
+        parser.error(
+            f"--memory-cost must be between {MIN_MEMORY_COST} and {MAX_MEMORY_COST}"
+        )
+    if not (MIN_PARALLELISM <= args.parallelism <= MAX_PARALLELISM):
+        parser.error(
+            f"--parallelism must be between {MIN_PARALLELISM} and {MAX_PARALLELISM}"
+        )
     if args.cmd == "hash":
         if args.cloud:
             required = ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]

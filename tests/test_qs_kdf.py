@@ -491,3 +491,35 @@ def test_cli_cloud_missing_env(monkeypatch, missing):
 def test_braket_backend_invalid_num_bytes(value):
     with pytest.raises(ValueError):
         qs_kdf.BraketBackend(device=object(), num_bytes=value)
+
+
+@pytest.mark.parametrize(
+    "flag,value",
+    [
+        ("--time-cost", "0"),
+        ("--time-cost", "11"),
+        ("--memory-cost", "31"),
+        ("--memory-cost", str(1024 * 1024 + 1)),
+        ("--parallelism", "0"),
+        ("--parallelism", "9"),
+    ],
+)
+def test_cli_param_limits_invalid(flag: str, value: str):
+    with pytest.raises(SystemExit):
+        cli_module.main(["hash", "pw", "--salt", "01" * 16, flag, value])
+
+
+@pytest.mark.parametrize(
+    "flag,value",
+    [
+        ("--time-cost", "1"),
+        ("--time-cost", "10"),
+        ("--memory-cost", "32"),
+        ("--memory-cost", str(1024 * 1024)),
+        ("--parallelism", "1"),
+        ("--parallelism", "8"),
+    ],
+)
+def test_cli_param_limits_valid(flag: str, value: str):
+    out = _run_cli(["hash", "pw", "--salt", "01" * 16, flag, value])
+    assert out
