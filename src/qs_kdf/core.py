@@ -80,12 +80,12 @@ class BraketBackend:
         if self.device is None:
             try:
                 from braket.aws import AwsDevice  # type: ignore
-            except Exception:  # pragma: no cover - optional
-                self.device = None
-            else:
+
                 self.device = AwsDevice(
                     "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
                 )
+            except Exception:  # pragma: no cover - optional
+                self.device = None
 
     def run(self, _seed: bytes) -> bytes:
         """Return ``num_bytes`` random bytes from Braket."""

@@ -137,7 +137,17 @@ def test_braket_backend(monkeypatch):
     assert result2 == b"\x42\x42"
 
 
-def test_braket_backend_unavailable():
+def test_braket_backend_unavailable(monkeypatch):
+    class FailingDevice:
+        def __init__(self, *args, **kwargs) -> None:
+            raise Exception("unavailable")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.aws",
+        types.SimpleNamespace(AwsDevice=FailingDevice),
+    )
+
     backend = qs_kdf.BraketBackend(device=None)
     with pytest.raises(RuntimeError):
         backend.run(b"seed")
