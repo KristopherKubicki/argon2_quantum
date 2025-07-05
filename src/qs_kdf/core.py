@@ -3,7 +3,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
 from .constants import PEPPER
 
@@ -143,11 +143,33 @@ class RedisCache:
         return value
 
 
-def lambda_handler(event: dict, _ctx) -> dict:
+@dataclass
+class HashEvent:
+    """Invocation payload for :func:`lambda_handler`."""
+
+    password: str
+    salt: str
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "HashEvent":
+        """Return ``HashEvent`` built from ``data``."""
+        if not isinstance(data, Mapping):
+            raise TypeError("event must be a mapping")
+        try:
+            password = data["password"]
+            salt = data["salt"]
+        except KeyError as exc:  # pragma: no cover - tested indirectly
+            raise KeyError(f"missing field: {exc.args[0]}") from exc
+        if not isinstance(password, str) or not isinstance(salt, str):
+            raise TypeError("password and salt must be strings")
+        return cls(password=password, salt=salt)
+
+
+def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     """Handle Argon2id hashing request via AWS Lambda.
 
     Args:
-        event: Invocation payload containing "salt" and "password".
+        event: Invocation payload containing ``salt`` and ``password``.
         _ctx: Lambda context object (unused).
 
     Returns:
@@ -158,8 +180,9 @@ def lambda_handler(event: dict, _ctx) -> dict:
     from braket.aws import AwsDevice  # type: ignore
     from braket.circuits import Circuit  # type: ignore
 
-    salt_hex = event["salt"]
-    password = event["password"]
+    evt = event if isinstance(event, HashEvent) else HashEvent.from_dict(event)
+    salt_hex = evt.salt
+    password = evt.password
     kms_key = os.environ["KMS_KEY_ID"]
     cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
 
