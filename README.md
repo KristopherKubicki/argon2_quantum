@@ -3,9 +3,10 @@
 [![CI](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml/badge.svg)](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/KristopherKubicki/argon2_quantum/graph/badge.svg?token=JuPPmkMFxR)](https://codecov.io/gh/KristopherKubicki/argon2_quantum)
 
-This project demonstrates a quantum inspired pre-hash using ten random bytes
-retrieved from AWS Braket followed by a classic memory-hard KDF. The quantum
-step executes a simple circuit on the managed simulator.
+This project demonstrates a quantum inspired pre-hash using ten random bytes.
+The bytes come from running a tiny qubit circuit via AWS Braket. By default the
+circuit executes on real quantum hardware, though the managed simulator is also
+available. The output then seeds a classic memory-hard KDF.
 
 > **Security Notice**
 > 

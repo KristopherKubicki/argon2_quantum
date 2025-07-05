@@ -44,6 +44,8 @@ except Exception as exc:  # pragma: no cover - enforce dependency
         "argon2-cffi must be installed; run 'pip install argon2-cffi'"
     ) from exc
 
+_warm_up()
+
 
 class Backend(Protocol):
     def run(self, seed: bytes) -> bytes:
@@ -116,7 +118,7 @@ class BraketBackend:
 
             try:
                 self.device = AwsDevice(
-                    "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+                    "arn:aws:braket:::device/qpu/ionq/ionQdevice"
                 )
             except NoCredentialsError as exc:  # pragma: no cover - optional
                 logging.getLogger(__name__).error("AWS credentials missing: %s", exc)
@@ -322,7 +324,7 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     seed = bytes.fromhex(salt_hex)
     key = hashlib.sha256(seed).hexdigest()
 
-    device = AwsDevice("arn:aws:braket:::device/quantum-simulator/amazon/sv1")
+    device = AwsDevice("arn:aws:braket:::device/qpu/ionq/ionQdevice")
     backend = BraketBackend(device=device)
 
     def _producer() -> bytes:
