@@ -76,26 +76,27 @@ class BraketBackend:
     num_bytes: int = 10
 
     def __post_init__(self) -> None:  # pragma: no cover - import guard
-        """Create default ``AwsDevice`` when none is supplied."""
+        """Create default ``AwsDevice`` when none is supplied.
+
+        ``self.device`` remains ``None`` when the SDK is missing and
+        :meth:`run` will raise a :class:`RuntimeError`.
+        """
 
         if self.device is None:
             try:
                 from braket.aws import AwsDevice  # type: ignore
-            except Exception:  # pragma: no cover - optional
-                self.device = None
-            else:
+
                 self.device = AwsDevice(
                     "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
                 )
+            except Exception:  # pragma: no cover - optional
+                self.device = None
 
     def run(self, _seed: bytes) -> bytes:
-        """Return ``num_bytes`` random bytes from Braket or fallback."""
+        """Return ``num_bytes`` random bytes from Braket."""
 
         if self.device is None:
-            backend = LocalBackend()
-            return b"".join(
-                backend.run(_seed + i.to_bytes(1, "big")) for i in range(self.num_bytes)
-            )
+            raise RuntimeError("Braket backend unavailable")
 
         from braket.circuits import Circuit  # type: ignore
 

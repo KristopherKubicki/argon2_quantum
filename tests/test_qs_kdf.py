@@ -172,6 +172,22 @@ def test_braket_backend(monkeypatch):
     assert device2.run_shots == [2]
 
 
+def test_braket_backend_unavailable(monkeypatch):
+    class FailingDevice:
+        def __init__(self, *args, **kwargs) -> None:
+            raise Exception("unavailable")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "braket.aws",
+        types.SimpleNamespace(AwsDevice=FailingDevice),
+    )
+
+    backend = qs_kdf.BraketBackend(device=None)
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
 def test_cli_invalid_salt():
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["hash", "pw", "--salt", "zz"])
