@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
-from .constants import PEPPER
+from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, PEPPER
 
 _warmed_up = False
 _warm_up_lock = threading.Lock()
@@ -333,6 +333,12 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     r = redis.Redis(**redis_opts)
     cache = RedisCache(r)
     seed = bytes.fromhex(salt_hex)
+    if len(password.encode()) > MAX_PASSWORD_BYTES:
+        raise ValueError(
+            f"password may not exceed {MAX_PASSWORD_BYTES} bytes"
+        )
+    if len(seed) > MAX_SALT_BYTES:
+        raise ValueError(f"salt may not exceed {MAX_SALT_BYTES} bytes")
     key = hashlib.sha256(seed).hexdigest()
 
     device = AwsDevice("arn:aws:braket:::device/qpu/ionq/ionQdevice")
