@@ -196,3 +196,22 @@ def test_cli_invalid_salt():
 def test_cli_invalid_digest():
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
+
+
+def _run_cli_with_code(argv: list[str]) -> tuple[str, int]:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        code = cli_module.main(argv)
+    return buf.getvalue().strip(), code
+
+
+def test_cli_missing_env(monkeypatch):
+    for var in ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]:
+        monkeypatch.delenv(var, raising=False)
+    def _raise(_event: dict, _ctx: object) -> dict:
+        raise KeyError("KMS_KEY_ID")
+
+    monkeypatch.setattr(cli_module, "lambda_handler", _raise)
+    out, code = _run_cli_with_code(["hash", "pw", "--salt", "01" * 16, "--cloud"])
+    assert "Missing environment variables" in out
+    assert code == 1
