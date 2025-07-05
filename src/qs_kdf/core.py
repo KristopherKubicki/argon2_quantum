@@ -300,7 +300,6 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     import boto3  # type: ignore
     import redis  # type: ignore
     from braket.aws import AwsDevice  # type: ignore
-    from braket.circuits import Circuit  # type: ignore
 
     evt = event if isinstance(event, HashEvent) else HashEvent.from_dict(event)
     salt_hex = evt.salt
@@ -321,15 +320,10 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     key = hashlib.sha256(seed).hexdigest()
 
     device = AwsDevice("arn:aws:braket:::device/quantum-simulator/amazon/sv1")
-    circuit = Circuit().h(range(8)).measure(range(8))
+    backend = BraketBackend(device=device)
 
     def _producer() -> bytes:
-        task = device.run(circuit, shots=10)
-        result = task.result()
-        result_bytes = bytearray()
-        for bits, count in result.measurement_counts.items():
-            result_bytes.extend(int(bits, 2).to_bytes(1, "big") * count)
-        return bytes(result_bytes)
+        return backend.run(seed)
 
     quantum_bytes = cache.get_or_set(key, 120, _producer)
 
