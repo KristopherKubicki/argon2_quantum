@@ -1,0 +1,26 @@
+# Compiled source files
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage
+
+# IDE and editor directories
+.idea/
+.vscode/
+
+# Node modules
+node_modules/
+
+# Miscellaneous
+.DS_Store
