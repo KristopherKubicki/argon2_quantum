@@ -104,23 +104,25 @@ def test_braket_backend(monkeypatch):
             return self
 
     class FakeResult:
-        def __init__(self, bits: str) -> None:
-            self.measurement_counts = {bits: 1}
+        def __init__(self, bits: str, shots: int) -> None:
+            self.measurement_counts = {bits: shots}
 
     class FakeTask:
-        def __init__(self, bits: str) -> None:
+        def __init__(self, bits: str, shots: int) -> None:
             self._bits = bits
+            self._shots = shots
 
         def result(self):
-            return FakeResult(self._bits)
+            return FakeResult(self._bits, self._shots)
 
     class FakeDevice:
         def __init__(self, bits: str) -> None:
             self.bits = bits
+            self.run_shots: list[int] = []
 
         def run(self, circuit, shots: int):
-            assert shots == 1
-            return FakeTask(self.bits)
+            self.run_shots.append(shots)
+            return FakeTask(self.bits, shots)
 
     monkeypatch.setitem(
         sys.modules,
@@ -128,13 +130,17 @@ def test_braket_backend(monkeypatch):
         types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
     )
 
-    backend = qs_kdf.BraketBackend(device=FakeDevice("01000010"))
+    device1 = FakeDevice("01000010")
+    backend = qs_kdf.BraketBackend(device=device1)
     result = backend.run(b"seed")
     assert result == b"\x42" * 10
+    assert device1.run_shots == [10]
 
-    backend2 = qs_kdf.BraketBackend(device=FakeDevice("01000010"), num_bytes=2)
+    device2 = FakeDevice("01000010")
+    backend2 = qs_kdf.BraketBackend(device=device2, num_bytes=2)
     result2 = backend2.run(b"seed")
     assert result2 == b"\x42\x42"
+    assert device2.run_shots == [2]
 
 
 def test_cli_invalid_salt():

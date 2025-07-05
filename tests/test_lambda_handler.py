@@ -30,27 +30,29 @@ class FakeKMS:
 
 
 class FakeResult:
-    def __init__(self, bits: str) -> None:
-        self.measurement_counts = {bits: 1}
+    def __init__(self, bits: str, shots: int) -> None:
+        self.measurement_counts = {bits: shots}
 
 
 class FakeTask:
-    def __init__(self, bits: str) -> None:
+    def __init__(self, bits: str, shots: int) -> None:
         self._bits = bits
+        self._shots = shots
 
     def result(self):
-        return FakeResult(self._bits)
+        return FakeResult(self._bits, self._shots)
 
 
 class FakeBraketDevice:
     def __init__(self, bits: str) -> None:
         self.bits = bits
         self.run_calls = 0
+        self.shots: list[int] = []
 
     def run(self, circuit, shots: int):
         self.run_calls += 1
-        assert shots == 1
-        return FakeTask(self.bits)
+        self.shots.append(shots)
+        return FakeTask(self.bits, shots)
 
 
 class FakeCircuit:

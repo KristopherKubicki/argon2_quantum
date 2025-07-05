@@ -95,12 +95,11 @@ class BraketBackend:
         from braket.circuits import Circuit  # type: ignore
 
         circuit = Circuit().h(range(8)).measure(range(8))
+        task = self.device.run(circuit, shots=self.num_bytes)
+        result = task.result()
         result_bytes = bytearray()
-        for _ in range(self.num_bytes):
-            task = self.device.run(circuit, shots=1)
-            result = task.result()
-            bits = next(iter(result.measurement_counts))
-            result_bytes.extend(int(bits, 2).to_bytes(1, "big"))
+        for bits, count in result.measurement_counts.items():
+            result_bytes.extend(int(bits, 2).to_bytes(1, "big") * count)
         return bytes(result_bytes)
 
 
