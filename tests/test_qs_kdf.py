@@ -269,3 +269,9 @@ def test_cli_cloud_missing_env(monkeypatch, missing):
     monkeypatch.delenv(missing)
     with pytest.raises(SystemExit):
         cli_module.main(["hash", "pw", "--salt", "01" * 16, "--cloud"])
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, "x"])
+def test_braket_backend_invalid_num_bytes(value):
+    with pytest.raises(ValueError):
+        qs_kdf.BraketBackend(device=object(), num_bytes=value)
