@@ -12,19 +12,20 @@ from qs_kdf.constants import PEPPER
 import pytest
 
 import qs_kdf
+from qs_kdf.testing_backend import TestBackend
 
 cli_module = importlib.import_module("qs_kdf.cli")
 
 
 def test_hash_password_length():
     salt = b"\x01" * 16
-    backend = qs_kdf.TestBackend()
+    backend = TestBackend()
     digest = qs_kdf.hash_password("pw", salt, backend=backend)
     assert len(digest) == 32
 
 
 def _legacy_hash_password(
-    password: str, salt: bytes, backend: qs_kdf.TestBackend
+    password: str, salt: bytes, backend: TestBackend
 ) -> bytes:
     pre = hashlib.sha512(password.encode() + salt + PEPPER).digest()
     pre = hashlib.sha256(pre).digest()
@@ -43,7 +44,7 @@ def _legacy_hash_password(
 
 def test_hash_password_compatibility():
     salt = b"\x09" * 16
-    backend = qs_kdf.TestBackend()
+    backend = TestBackend()
     new_digest = qs_kdf.hash_password("pw", salt, backend=backend)
     old_digest = _legacy_hash_password("pw", salt, backend)
     assert new_digest == old_digest
@@ -72,7 +73,7 @@ def test_cli_output_cloud(monkeypatch):
 
 def test_timing_attack():
     salt = b"\x02" * 16
-    backend = qs_kdf.TestBackend()
+    backend = TestBackend()
     start_good = time.perf_counter()
     qs_kdf.hash_password("pw", salt, backend=backend)
     good = time.perf_counter() - start_good
@@ -84,7 +85,7 @@ def test_timing_attack():
 
 def test_verify_password():
     salt = b"\x03" * 16
-    backend = qs_kdf.TestBackend()
+    backend = TestBackend()
     digest = qs_kdf.hash_password("pw", salt, backend=backend)
     assert qs_kdf.verify_password("pw", salt, digest, backend=backend)
     assert not qs_kdf.verify_password("bad", salt, digest, backend=backend)

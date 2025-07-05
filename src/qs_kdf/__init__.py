@@ -9,7 +9,7 @@ from .core import (
     qstretch,
     verify_password,
 )
-from .test_backend import TestBackend
+from .testing_backend import TestBackend
 
 __all__ = [
     "lambda_handler",
