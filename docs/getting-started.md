@@ -40,17 +40,10 @@ python -m qs_kdf verify "hunter2" --salt 0011223344556677 --digest <hex>
 
 ## Deploying the Lambda
 
-The stack defined in [`infra/qs_kdf_stack.py`](../infra/qs_kdf_stack.py)
-provisions the Lambda, KMS key and Redis cache. Deploy with:
+The infrastructure is defined using the AWS CDK. Deploy with:
 
 ```bash
 cd infra && cdk deploy
-```
-
-Alternatively run:
-
-```bash
-terraform -chdir=terraform apply
 ```
 
 The random bytes are fetched from AWS Braket by running a tiny circuit. Ensure
