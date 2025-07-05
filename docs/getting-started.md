@@ -53,7 +53,8 @@ In this demo it returns a fixed value but shows how the API would be used in
 production.
 
 The repository ships with a static 32-byte pepper used for these examples.
-Replace it with your own secret when deploying.
+Set ``QS_PEPPER`` to override it when running locally and replace it with your
+own secret when deploying.
 
 Passwords longer than 64 bytes or salts over 32 bytes are rejected by both
 the CLI and Lambda handler to keep memory usage predictable.
@@ -63,7 +64,8 @@ the CLI and Lambda handler to keep memory usage predictable.
 The CLI defaults to the ``LocalBackend`` which slices a SHA‑512 digest of the
 stretched password to produce ten deterministic bytes. This allows repeatable
 hashing and verification without any AWS credentials. Use this mode for local
-tests or CI runs.
+tests or CI runs. Set ``QS_PEPPER`` to your 32-byte secret so the hash matches
+production behavior.
 
 ### Cloud mode
 
