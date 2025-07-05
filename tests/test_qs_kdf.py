@@ -90,6 +90,35 @@ def test_cli_output_cloud(monkeypatch):
     assert out == "deadbeef"
 
 
+def test_cli_device_options(monkeypatch):
+    captured: dict[str, dict] = {}
+
+    def fake_handler(event: dict, _ctx: object) -> dict:
+        captured["event"] = event
+        return {"digest": "bead"}
+
+    monkeypatch.setattr(cli_module, "lambda_handler", fake_handler)
+    monkeypatch.setenv("KMS_KEY_ID", "k")
+    monkeypatch.setenv("PEPPER_CIPHERTEXT", "c")
+    monkeypatch.setenv("REDIS_HOST", "r")
+    out = _run_cli(
+        [
+            "hash",
+            "pw",
+            "--salt",
+            "01" * 16,
+            "--cloud",
+            "--device-arn",
+            "arn:custom",
+            "--num-bytes",
+            "2",
+        ]
+    )
+    assert out == "bead"
+    assert captured["event"]["device_arn"] == "arn:custom"
+    assert captured["event"]["num_bytes"] == 2
+
+
 def test_cli_custom_params(monkeypatch):
     called: dict[str, tuple[int, int, int]] = {}
 
