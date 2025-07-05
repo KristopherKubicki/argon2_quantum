@@ -54,6 +54,17 @@ python -m qs_kdf verify "hunter2" --salt 0011223344556677 --digest <hex>
 
 `verify` exits with the digest result printed to stdout (`OK` or `NOPE`).
 
+## Building the Lambda Artifact
+
+Deployments expect a zipped package under `build/lambda.zip`. Create it with:
+
+```bash
+./scripts/package_lambda.sh
+```
+
+The script installs runtime requirements into `build/lambda`, copies the
+source code and zips the directory for the CDK stack.
+
 ## Deploying the Lambda
 
 The infrastructure is defined using the AWS CDK. Deploy with:
