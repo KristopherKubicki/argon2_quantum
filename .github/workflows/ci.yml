@@ -20,12 +20,9 @@ jobs:
           pip install -r requirements.txt
           pip install -r infra/requirements.txt
           pip install .
-          pip install ruff
-          pip install bandit
-      - name: Ruff
-        run: ruff check .
-      - name: Bandit
-        run: bandit -c .bandit.yml -r src/qs_kdf
+          pip install pre-commit
+      - name: Pre-commit
+        run: pre-commit run --show-diff-on-failure --color always --all-files
       - name: Tests
         run: |
           pip install pytest pytest-cov
