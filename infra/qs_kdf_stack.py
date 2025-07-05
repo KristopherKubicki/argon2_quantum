@@ -30,7 +30,6 @@ class QsKdfStack(Stack):
             timeout=Duration.seconds(10),
         )
 
-
         task = tasks.LambdaInvoke(self, "Invoke", lambda_function=func)
         sfn.StateMachine(
             self,
