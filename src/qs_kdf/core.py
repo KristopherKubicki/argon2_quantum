@@ -2,12 +2,14 @@ import base64
 import hashlib
 import os
 import secrets
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 
 from .constants import PEPPER
 
 _warmed_up = False
+_warm_up_lock = threading.Lock()
 
 
 def _warm_up() -> None:
@@ -15,16 +17,19 @@ def _warm_up() -> None:
     global _warmed_up
     if _warmed_up:
         return
-    hash_secret_raw(
-        b"x",
-        b"\x00" * 17,
-        time_cost=3,
-        memory_cost=262_144,
-        parallelism=4,
-        hash_len=32,
-        type=Type.ID,
-    )
-    _warmed_up = True
+    with _warm_up_lock:
+        if _warmed_up:
+            return
+        hash_secret_raw(
+            b"x",
+            b"\x00" * 17,
+            time_cost=3,
+            memory_cost=262_144,
+            parallelism=4,
+            hash_len=32,
+            type=Type.ID,
+        )
+        _warmed_up = True
 
 
 try:
