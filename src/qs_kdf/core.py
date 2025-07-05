@@ -47,6 +47,13 @@ class LocalBackend:
         return digest[:1]
 
 
+def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
+    """Return 256-bit stretched digest using a double hash."""
+    data = password.encode() + salt + pepper
+    digest = hashlib.sha512(data).digest()
+    return hashlib.sha256(digest).digest()
+
+
 @dataclass
 class BraketBackend:
     """Backend fetching random bytes from AWS Braket."""
