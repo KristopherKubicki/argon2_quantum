@@ -188,6 +188,16 @@ def test_braket_backend_unavailable(monkeypatch):
         backend.run(b"seed")
 
 
+def test_braket_backend_missing_circuit(monkeypatch):
+    pkg = types.ModuleType("braket")
+    pkg.__path__ = []
+    monkeypatch.setitem(sys.modules, "braket", pkg)
+    sys.modules.pop("braket.circuits", None)
+    backend = qs_kdf.BraketBackend(device=object())
+    with pytest.raises(RuntimeError):
+        backend.run(b"seed")
+
+
 def test_cli_invalid_salt():
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["hash", "pw", "--salt", "zz"])
