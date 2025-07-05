@@ -5,7 +5,7 @@ import os
 
 import qs_kdf
 
-from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES
+from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, MAX_NUM_BYTES
 
 from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
@@ -60,6 +60,10 @@ def main(argv: list[str] | None = None) -> int:
     if len(salt) > MAX_SALT_BYTES:
         parser.error(f"salt exceeds {MAX_SALT_BYTES} bytes")
     if args.cmd == "hash":
+        if args.num_bytes <= 0:
+            parser.error("--num-bytes must be a positive integer")
+        if args.num_bytes > MAX_NUM_BYTES:
+            parser.error(f"--num-bytes may not exceed {MAX_NUM_BYTES}")
         if args.cloud:
             required = ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]
             missing = [v for v in required if v not in os.environ]

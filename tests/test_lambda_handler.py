@@ -1,6 +1,8 @@
 import base64
 import hashlib
 import ssl
+
+from qs_kdf.constants import MAX_NUM_BYTES
 import sys
 import types
 from dataclasses import asdict
@@ -227,3 +229,14 @@ def test_lambda_handler_unverified_tls(monkeypatch, _env):
     lambda_handler(event, None)
 
     assert redis_module.ssl_cert_reqs is None
+
+
+def test_lambda_handler_num_bytes_limit(monkeypatch, _env):
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = {"password": "pw", "salt": "55" * 16, "num_bytes": MAX_NUM_BYTES + 1}
+    with pytest.raises(ValueError):
+        lambda_handler(event, None)

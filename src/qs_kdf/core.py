@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
-from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, PEPPER
+from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, MAX_NUM_BYTES, PEPPER
 
 _warmed_up = False
 _warm_up_lock = threading.Lock()
@@ -125,6 +125,8 @@ class BraketBackend:
 
         if not isinstance(self.num_bytes, int) or self.num_bytes <= 0:
             raise ValueError("num_bytes must be a positive integer")
+        if self.num_bytes > MAX_NUM_BYTES:
+            raise ValueError(f"num_bytes may not exceed {MAX_NUM_BYTES}")
 
         if self.device is None:
             try:
@@ -413,6 +415,10 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
         num_bytes = int(num_bytes)
     else:
         num_bytes = 10
+    if num_bytes <= 0:
+        raise ValueError("num_bytes must be a positive integer")
+    if num_bytes > MAX_NUM_BYTES:
+        raise ValueError(f"num_bytes may not exceed {MAX_NUM_BYTES}")
     device_arn = device_arn or "arn:aws:braket:::device/qpu/ionq/ionQdevice"
     device = AwsDevice(device_arn)
     backend = BraketBackend(device=device, device_arn=device_arn, num_bytes=num_bytes)

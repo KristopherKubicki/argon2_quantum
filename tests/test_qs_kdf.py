@@ -119,6 +119,22 @@ def test_cli_device_options(monkeypatch):
     assert captured["event"]["num_bytes"] == 2
 
 
+def test_cli_num_bytes_limit(monkeypatch):
+    monkeypatch.setenv("KMS_KEY_ID", "k")
+    monkeypatch.setenv("PEPPER_CIPHERTEXT", "c")
+    monkeypatch.setenv("REDIS_HOST", "r")
+    with pytest.raises(SystemExit):
+        _run_cli([
+            "hash",
+            "pw",
+            "--salt",
+            "01" * 16,
+            "--cloud",
+            "--num-bytes",
+            str(MAX_NUM_BYTES + 1),
+        ])
+
+
 def test_cli_custom_params(monkeypatch):
     called: dict[str, tuple[int, int, int]] = {}
 
@@ -487,7 +503,10 @@ def test_cli_cloud_missing_env(monkeypatch, missing):
         cli_module.main(["hash", "pw", "--salt", "01" * 16, "--cloud"])
 
 
-@pytest.mark.parametrize("value", [0, -1, 1.5, "x"])
+from qs_kdf.constants import MAX_NUM_BYTES
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, "x", MAX_NUM_BYTES + 1])
 def test_braket_backend_invalid_num_bytes(value):
     with pytest.raises(ValueError):
         qs_kdf.BraketBackend(device=object(), num_bytes=value)
