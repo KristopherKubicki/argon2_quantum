@@ -1,9 +1,20 @@
+"""Command-line interface for hashing and verifying passwords."""
+
 import argparse
 
 from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse arguments and hash or verify a password.
+
+    Args:
+        argv: Optional list of command-line arguments.
+
+    Returns:
+        int: ``0`` on success.
+    """
+
     parser = argparse.ArgumentParser(prog="qs_kdf")
     sub = parser.add_subparsers(dest="cmd", required=True)
     h = sub.add_parser("hash")
