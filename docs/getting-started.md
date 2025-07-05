@@ -30,6 +30,9 @@ production.
 The repository ships with a static 32-byte pepper used for these examples.
 Replace it with your own secret when deploying.
 
+Passwords longer than 64 bytes or salts over 32 bytes are rejected by both
+the CLI and Lambda handler to keep memory usage predictable.
+
 ### Cloud mode
 
 Running with `--cloud` invokes the deployed Lambda. Set the following

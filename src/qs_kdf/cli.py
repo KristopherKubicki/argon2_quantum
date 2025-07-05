@@ -3,6 +3,8 @@
 import argparse
 import os
 
+from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES
+
 from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
 
@@ -35,6 +37,12 @@ def main(argv: list[str] | None = None) -> int:
         raise argparse.ArgumentTypeError(
             f"invalid hex value for --salt: {args.salt}"
         ) from exc
+    if len(args.password.encode()) > MAX_PASSWORD_BYTES:
+        parser.error(
+            f"password exceeds {MAX_PASSWORD_BYTES} bytes"
+        )
+    if len(salt) > MAX_SALT_BYTES:
+        parser.error(f"salt exceeds {MAX_SALT_BYTES} bytes")
     if args.cmd == "hash":
         if args.cloud:
             required = ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]
