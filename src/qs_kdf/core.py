@@ -13,7 +13,11 @@ _warm_up_lock = threading.Lock()
 
 
 def _warm_up() -> None:
-    """Preload Argon2 memory to stabilize runtime."""
+    """Preload Argon2 memory to stabilize runtime.
+
+    Returns:
+        None
+    """
     global _warmed_up
     if _warmed_up:
         return
@@ -62,7 +66,16 @@ class LocalBackend:
 
 
 def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
-    """Return 256-bit stretched digest using a double hash."""
+    """Return 256-bit digest from password, salt, and pepper.
+
+    Args:
+        password: Password string to stretch.
+        salt: Salt bytes used for the first hash.
+        pepper: Optional pepper value used in the hash.
+
+    Returns:
+        bytes: Final stretched digest.
+    """
     data = password.encode() + salt + pepper
     digest = hashlib.sha512(data).digest()
     return hashlib.sha256(digest).digest()
@@ -78,8 +91,12 @@ class BraketBackend:
     def __post_init__(self) -> None:  # pragma: no cover - import guard
         """Create default ``AwsDevice`` when none is supplied.
 
-        ``self.device`` remains ``None`` when the SDK is missing and
-        :meth:`run` will raise a :class:`RuntimeError`.
+        Returns:
+            None
+
+        Notes:
+            ``self.device`` remains ``None`` when the SDK is missing and
+            :meth:`run` will raise :class:`RuntimeError`.
         """
 
         if self.device is None:
@@ -93,7 +110,17 @@ class BraketBackend:
                 self.device = None
 
     def run(self, _seed: bytes) -> bytes:
-        """Return ``num_bytes`` random bytes from Braket."""
+        """Return ``num_bytes`` random bytes from Braket.
+
+        Args:
+            _seed: Ignored seed bytes.
+
+        Returns:
+            bytes: Random bytes fetched from the device.
+
+        Raises:
+            RuntimeError: If ``self.device`` is ``None``.
+        """
 
         if self.device is None:
             raise RuntimeError("Braket backend unavailable")
@@ -175,6 +202,9 @@ class RedisCache:
 
         Args:
             client: Redis client instance.
+
+        Returns:
+            None
         """
 
         self.client = client
@@ -208,7 +238,18 @@ class HashEvent:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "HashEvent":
-        """Return ``HashEvent`` built from ``data``."""
+        """Return ``HashEvent`` built from ``data``.
+
+        Args:
+            data: Mapping with keys ``"password"`` and ``"salt"``.
+
+        Returns:
+            HashEvent: Parsed event object.
+
+        Raises:
+            KeyError: If a required field is missing.
+            TypeError: If ``data`` is not a mapping or values are not strings.
+        """
         if not isinstance(data, Mapping):
             raise TypeError("event must be a mapping")
         try:
@@ -230,6 +271,10 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
 
     Returns:
         dict: Response with hex digest under "digest".
+
+    Raises:
+        KeyError: If ``event`` is missing required fields.
+        TypeError: If ``event`` is not a valid mapping or strings.
     """
     import boto3  # type: ignore
     import redis  # type: ignore
