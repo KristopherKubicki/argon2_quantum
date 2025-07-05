@@ -82,6 +82,40 @@ def test_cli_output_cloud(monkeypatch):
     assert out == "deadbeef"
 
 
+def test_cli_custom_params(monkeypatch):
+    called: dict[str, tuple[int, int, int]] = {}
+
+    def fake_hash_password(
+        password: str,
+        salt: bytes,
+        backend=None,
+        pepper=None,
+        time_cost: int = 3,
+        memory_cost: int = 262_144,
+        parallelism: int = 4,
+    ) -> bytes:
+        called["params"] = (time_cost, memory_cost, parallelism)
+        return b"\x00" * 32
+
+    monkeypatch.setattr(cli_module, "hash_password", fake_hash_password)
+    out = _run_cli(
+        [
+            "hash",
+            "pw",
+            "--salt",
+            "01" * 16,
+            "--time-cost",
+            "5",
+            "--memory-cost",
+            "64",
+            "--parallelism",
+            "2",
+        ]
+    )
+    assert called["params"] == (5, 64, 2)
+    assert out == "00" * 32
+
+
 def test_timing_attack():
     salt = b"\x02" * 16
     backend = qs_kdf.TestBackend()
@@ -116,6 +150,43 @@ def test_cli_verify():
             digest.hex(),
         ]
     )
+    assert out == "OK"
+
+
+def test_cli_verify_custom_params(monkeypatch):
+    called: dict[str, tuple[int, int, int]] = {}
+
+    def fake_verify_password(
+        password: str,
+        salt: bytes,
+        digest: bytes,
+        backend=None,
+        pepper=None,
+        time_cost: int = 3,
+        memory_cost: int = 262_144,
+        parallelism: int = 4,
+    ) -> bool:
+        called["params"] = (time_cost, memory_cost, parallelism)
+        return True
+
+    monkeypatch.setattr(cli_module, "verify_password", fake_verify_password)
+    out = _run_cli(
+        [
+            "verify",
+            "pw",
+            "--salt",
+            "04" * 16,
+            "--digest",
+            "00" * 32,
+            "--time-cost",
+            "5",
+            "--memory-cost",
+            "64",
+            "--parallelism",
+            "2",
+        ]
+    )
+    assert called["params"] == (5, 64, 2)
     assert out == "OK"
 
 

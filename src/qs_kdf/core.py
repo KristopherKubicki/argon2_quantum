@@ -169,6 +169,9 @@ def hash_password(
     salt: bytes,
     backend: Backend | None = None,
     pepper: bytes | None = None,
+    time_cost: int = 3,
+    memory_cost: int = 262_144,
+    parallelism: int = 4,
 ) -> bytes:
     """Compute Argon2id digest with quantum salt bytes.
 
@@ -177,6 +180,9 @@ def hash_password(
         salt: Salt bytes.
         backend: Backend providing quantum randomness.
         pepper: Optional pepper value.
+        time_cost: Argon2 time cost.
+        memory_cost: Argon2 memory cost.
+        parallelism: Argon2 parallelism.
 
     Returns:
         bytes: Final digest bytes.
@@ -192,9 +198,9 @@ def hash_password(
     digest = hash_secret_raw(
         password.encode(),
         new_salt,
-        time_cost=3,
-        memory_cost=262_144,
-        parallelism=4,
+        time_cost=time_cost,
+        memory_cost=memory_cost,
+        parallelism=parallelism,
         hash_len=32,
         type=Type.ID,
     )
@@ -207,6 +213,9 @@ def verify_password(
     digest: bytes,
     backend: Backend | None = None,
     pepper: bytes | None = None,
+    time_cost: int = 3,
+    memory_cost: int = 262_144,
+    parallelism: int = 4,
 ) -> bool:
     """Check that password and salt produce ``digest``.
 
@@ -216,11 +225,22 @@ def verify_password(
         digest: Expected digest bytes.
         backend: Backend providing quantum randomness.
         pepper: Optional pepper value.
+        time_cost: Argon2 time cost.
+        memory_cost: Argon2 memory cost.
+        parallelism: Argon2 parallelism.
 
     Returns:
         bool: ``True`` on match, ``False`` otherwise.
     """
-    candidate = hash_password(password, salt, backend=backend, pepper=pepper)
+    candidate = hash_password(
+        password,
+        salt,
+        backend=backend,
+        pepper=pepper,
+        time_cost=time_cost,
+        memory_cost=memory_cost,
+        parallelism=parallelism,
+    )
     return secrets.compare_digest(candidate, digest)
 
 
