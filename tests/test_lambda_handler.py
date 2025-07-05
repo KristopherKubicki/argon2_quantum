@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import ssl
 import sys
 import types
 from dataclasses import asdict
@@ -90,12 +91,14 @@ class FakeRedisModule:
         self._client = client
         self.password: str | None = None
         self.ssl: bool | None = None
+        self.ssl_cert_reqs: object | None = None
 
     def Redis(self, host: str, port: int, **kwargs):
         assert host == "r"
         assert port == 6379
         self.password = kwargs.get("password")
         self.ssl = kwargs.get("ssl")
+        self.ssl_cert_reqs = kwargs.get("ssl_cert_reqs")
         return self._client
 
 
@@ -210,3 +213,17 @@ def test_lambda_handler_redis_options(monkeypatch, _env):
 
     assert redis_module.password == "secret"
     assert redis_module.ssl is True
+    assert redis_module.ssl_cert_reqs == ssl.CERT_REQUIRED
+
+
+def test_lambda_handler_unverified_tls(monkeypatch, _env):
+    monkeypatch.setenv("REDIS_CERT_REQS", "none")
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    redis_module = _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="44" * 16))
+    lambda_handler(event, None)
+
+    assert redis_module.ssl_cert_reqs is None

@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import os
+import ssl
 import secrets
 import threading
 import logging
@@ -359,7 +360,13 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     tls_env = os.environ.get("REDIS_TLS", "").lower()
     if tls_env in {"1", "true", "yes"}:
         redis_opts["ssl"] = True
-        redis_opts["ssl_cert_reqs"] = None
+        cert_env = os.environ.get("REDIS_CERT_REQS", "required").lower()
+        cert_map = {
+            "none": None,
+            "optional": ssl.CERT_OPTIONAL,
+            "required": ssl.CERT_REQUIRED,
+        }
+        redis_opts["ssl_cert_reqs"] = cert_map.get(cert_env, ssl.CERT_REQUIRED)
 
     r = redis.Redis(**redis_opts)
     cache = RedisCache(r)
