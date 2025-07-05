@@ -86,17 +86,21 @@ class LocalBackend:
         return digest[:10]
 
 
-def qstretch(password: str, salt: bytes, pepper: bytes = PEPPER) -> bytes:
+def qstretch(password: str, salt: bytes, pepper: bytes | None = None) -> bytes:
     """Return 256-bit digest from password, salt, and pepper.
 
     Args:
         password: Password string to stretch.
         salt: Salt bytes used for the first hash.
-        pepper: Optional pepper value used in the hash.
+        pepper: Optional 32-byte pepper value used in the hash.
 
     Returns:
         bytes: Final stretched digest.
     """
+    if pepper is None:
+        pepper = PEPPER
+    if not isinstance(pepper, (bytes, bytearray)) or len(pepper) == 0:
+        raise ValueError("pepper must be non-empty bytes")
     data = password.encode() + salt + pepper
     digest = hashlib.sha512(data).digest()
     return hashlib.sha256(digest).digest()

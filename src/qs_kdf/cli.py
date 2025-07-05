@@ -78,11 +78,18 @@ def main(argv: list[str] | None = None) -> int:
             )
             digest_hex = response["digest"]
         else:
+            pepper_env = os.getenv("QS_PEPPER")
+            if pepper_env is None:
+                parser.error("QS_PEPPER environment variable required")
+            pepper = pepper_env.encode()
+            if len(pepper) == 0:
+                parser.error("QS_PEPPER must not be empty")
             backend = LocalBackend()
             digest_hex = hash_password(
                 args.password,
                 salt,
                 backend=backend,
+                pepper=pepper,
                 time_cost=args.time_cost,
                 memory_cost=args.memory_cost,
                 parallelism=args.parallelism,
@@ -98,12 +105,19 @@ def main(argv: list[str] | None = None) -> int:
             raise argparse.ArgumentTypeError(
                 f"invalid hex value for --digest: {args.digest}"
             ) from exc
+        pepper_env = os.getenv("QS_PEPPER")
+        if pepper_env is None:
+            parser.error("QS_PEPPER environment variable required")
+        pepper = pepper_env.encode()
+        if len(pepper) == 0:
+            parser.error("QS_PEPPER must not be empty")
         backend = LocalBackend()
         ok = verify_password(
             args.password,
             salt,
             digest,
             backend=backend,
+            pepper=pepper,
             time_cost=args.time_cost,
             memory_cost=args.memory_cost,
             parallelism=args.parallelism,

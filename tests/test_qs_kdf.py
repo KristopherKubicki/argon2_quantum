@@ -16,6 +16,15 @@ import qs_kdf
 cli_module = importlib.import_module("qs_kdf.cli")
 
 
+@pytest.fixture()
+def _pepper(monkeypatch):
+    monkeypatch.setenv("QS_PEPPER", "x" * 32)
+    import qs_kdf.constants as constants
+    monkeypatch.setattr(constants, "PEPPER", b"x" * 32, raising=False)
+    import qs_kdf.core as core
+    monkeypatch.setattr(core, "PEPPER", b"x" * 32, raising=False)
+
+
 def test_hash_password_length():
     salt = b"\x01" * 16
     backend = qs_kdf.TestBackend()
@@ -64,12 +73,12 @@ def test_cli_version_flag(capsys):
     assert qs_kdf.__version__ in captured.out
 
 
-def test_cli_output_local():
+def test_cli_output_local(_pepper):
     out = _run_cli(["hash", "pw", "--salt", "01" * 16])
     assert out
 
 
-def test_cli_generates_salt():
+def test_cli_generates_salt(_pepper):
     out = _run_cli(["hash", "pw"])
     salt_hex, digest_hex = out.split()
     assert len(salt_hex) == 32
@@ -119,7 +128,7 @@ def test_cli_device_options(monkeypatch):
     assert captured["event"]["num_bytes"] == 2
 
 
-def test_cli_custom_params(monkeypatch):
+def test_cli_custom_params(monkeypatch, _pepper):
     called: dict[str, tuple[int, int, int]] = {}
 
     def fake_hash_password(
@@ -173,7 +182,7 @@ def test_verify_password():
     assert not qs_kdf.verify_password("bad", salt, digest, backend=backend)
 
 
-def test_cli_verify():
+def test_cli_verify(_pepper):
     backend = qs_kdf.LocalBackend()
     salt = b"\x04" * 16
     digest = qs_kdf.hash_password("pw", salt, backend=backend)
@@ -190,7 +199,7 @@ def test_cli_verify():
     assert out == "OK"
 
 
-def test_cli_verify_custom_params(monkeypatch):
+def test_cli_verify_custom_params(monkeypatch, _pepper):
     called: dict[str, tuple[int, int, int]] = {}
 
     def fake_verify_password(
@@ -227,7 +236,7 @@ def test_cli_verify_custom_params(monkeypatch):
     assert out == "OK"
 
 
-def test_cli_verify_nope():
+def test_cli_verify_nope(_pepper):
     backend = qs_kdf.LocalBackend()
     salt = b"\x05" * 16
     qs_kdf.hash_password("pw", salt, backend=backend)
@@ -467,12 +476,12 @@ def test_braket_backend_missing_circuit(monkeypatch):
         backend.run(b"seed")
 
 
-def test_cli_invalid_salt():
+def test_cli_invalid_salt(_pepper):
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["hash", "pw", "--salt", "zz"])
 
 
-def test_cli_invalid_digest():
+def test_cli_invalid_digest(_pepper):
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
 
