@@ -126,7 +126,7 @@ def hash_password(
         backend = LocalBackend()
     if pepper is None:
         pepper = PEPPER
-    pre = hashlib.sha512(password.encode() + salt + pepper).digest()
+    pre = qstretch(password, salt, pepper=pepper)
     quantum = backend.run(pre)
     new_salt = salt + quantum
     digest = hash_secret_raw(

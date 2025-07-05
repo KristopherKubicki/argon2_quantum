@@ -5,6 +5,9 @@ import io
 import sys
 import time
 import types
+import hashlib
+from argon2.low_level import hash_secret_raw, Type
+from qs_kdf.constants import PEPPER
 
 import pytest
 
@@ -18,6 +21,32 @@ def test_hash_password_length():
     backend = qs_kdf.TestBackend()
     digest = qs_kdf.hash_password("pw", salt, backend=backend)
     assert len(digest) == 32
+
+
+def _legacy_hash_password(
+    password: str, salt: bytes, backend: qs_kdf.TestBackend
+) -> bytes:
+    pre = hashlib.sha512(password.encode() + salt + PEPPER).digest()
+    pre = hashlib.sha256(pre).digest()
+    quantum = backend.run(pre)
+    new_salt = salt + quantum
+    return hash_secret_raw(
+        password.encode(),
+        new_salt,
+        time_cost=3,
+        memory_cost=262_144,
+        parallelism=4,
+        hash_len=32,
+        type=Type.ID,
+    )
+
+
+def test_hash_password_compatibility():
+    salt = b"\x09" * 16
+    backend = qs_kdf.TestBackend()
+    new_digest = qs_kdf.hash_password("pw", salt, backend=backend)
+    old_digest = _legacy_hash_password("pw", salt, backend)
+    assert new_digest == old_digest
 
 
 def _run_cli(argv: list[str]) -> str:
