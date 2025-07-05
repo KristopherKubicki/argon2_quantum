@@ -21,6 +21,7 @@ qs_kdf = "qs_kdf.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+py-modules = ["qsargon2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
