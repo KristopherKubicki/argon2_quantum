@@ -1,3 +1,10 @@
+"""Define the CDK stack for the quantum-safe KDF workflow.
+
+The stack sets up a Lambda function with basic execution permissions
+and a Step Function that invokes the function with a 200-millisecond
+timeout.
+"""
+
 from aws_cdk import Duration, Stack
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
@@ -7,6 +14,11 @@ from constructs import Construct
 
 
 class QsKdfStack(Stack):
+    """Provision a Lambda and state machine for the quantum-safe KDF.
+
+    The Lambda performs a KDF step and the Step Function limits execution
+    to 200 milliseconds.
+    """
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
