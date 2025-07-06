@@ -47,11 +47,16 @@ simulator backend.
 Set ``QS_WARMUP=1`` or call ``qs_kdf.warm_up()`` to preload Argon2 memory
 for consistent benchmarking.
 
+
 ### QS_PEPPER
 
-Local hashing fails unless ``QS_PEPPER`` is set to a 32-byte secret. Export
-your own value before invoking the CLI. See
-[docs/getting-started.md](docs/getting-started.md) for details.
+The pepper in [src/qs_kdf/constants.py](src/qs_kdf/constants.py) is
+included only so the examples run out of the box. Local hashing fails
+unless ``QS_PEPPER`` is set to a 32-byte secret. Export your own value
+before invoking the CLI. See
+[docs/getting-started.md](docs/getting-started.md) lines 55-57 and 67 for
+instructions on overriding ``QS_PEPPER``. Always set a unique 32-byte
+secret in any production environment.
 
 The ``BraketBackend`` defaults to the IonQ QPU but accepts a ``device_arn``
 parameter if you wish to target a different device.
