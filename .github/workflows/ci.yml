@@ -41,4 +41,3 @@ jobs:
       - name: CDK Synth
         working-directory: infra
         run: cdk synth
-        continue-on-error: true
