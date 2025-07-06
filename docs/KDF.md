@@ -13,8 +13,9 @@
 | Quantum adversary  | Large-scale QPU              | Monitoring, limited benefit     |
 
 The quantum bytes are fetched from AWS Braket in production or generated locally
-during development. This makes brute-force attempts expensive because each
-password guess must reproduce the extra step.
+during development. The small circuit used to obtain them is outlined in
+[quantum-circuit.md](quantum-circuit.md). This extra step makes brute-force
+attempts expensive because each password guess must reproduce the service call.
 
 ## Flow Diagram
 
