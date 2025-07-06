@@ -226,3 +226,15 @@ def test_lambda_handler_invalid_cert_reqs(monkeypatch, _env):
     event = asdict(HashEvent(password="pw", salt="44" * 16))
     with pytest.raises(RuntimeError):
         lambda_handler(event, None)
+
+
+def test_lambda_handler_invalid_port(monkeypatch, _env):
+    monkeypatch.setenv("REDIS_PORT", "notint")
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="55" * 16))
+    with pytest.raises(RuntimeError, match="REDIS_PORT must be an integer"):
+        lambda_handler(event, None)
