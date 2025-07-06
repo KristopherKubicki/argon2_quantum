@@ -238,3 +238,14 @@ def test_lambda_handler_invalid_port(monkeypatch, _env):
     event = asdict(HashEvent(password="pw", salt="55" * 16))
     with pytest.raises(RuntimeError, match="REDIS_PORT must be an integer"):
         lambda_handler(event, None)
+
+
+def test_hash_event_from_dict_non_mapping():
+    with pytest.raises(TypeError):
+        HashEvent.from_dict(["not", "mapping"])  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("payload", [{"password": "pw"}, {"salt": "ff"}])
+def test_hash_event_from_dict_missing_fields(payload: dict):
+    with pytest.raises(KeyError):
+        HashEvent.from_dict(payload)
