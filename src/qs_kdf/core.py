@@ -290,6 +290,9 @@ class RedisCache:
             bytes: Cached or newly produced value.
         """
 
+        if not isinstance(ttl, int) or ttl <= 0:
+            raise ValueError("ttl must be a positive integer")
+
         cached = self.client.get(key)
         if cached:
             return cached
