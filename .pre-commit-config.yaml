@@ -9,6 +9,7 @@ repos:
     rev: 1.7.8
     hooks:
       - id: bandit
+        pass_filenames: false
         args: ["-c", ".bandit.yml", "-r", "src/qs_kdf"]
   - repo: local
     hooks:

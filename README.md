@@ -89,9 +89,9 @@ pre-commit install
 Run the hooks and tests before committing:
 ```bash
 pre-commit run --files <files>
-pytest
 ```
-Extra checks such as `mypy` or `bandit` are optional but recommended.
+This runs `ruff`, `bandit` and `pytest` automatically.
+Extra checks such as `mypy` are optional but recommended.
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
