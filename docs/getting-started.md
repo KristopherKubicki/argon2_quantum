@@ -52,9 +52,9 @@ connectivity. Pass `--cloud` to route the request through the Lambda handler.
 In this demo it returns a fixed value but shows how the API would be used in
 production.
 
-The repository ships with a static 32-byte pepper used for these examples.
-Set ``QS_PEPPER`` to override it when running locally and replace it with your
-own secret when deploying.
+The command requires a 32-byte pepper provided via the ``QS_PEPPER``
+environment variable. Set this to your secret when running locally or
+deploying.
 
 Passwords longer than 64 bytes or salts over 32 bytes are rejected by both
 the CLI and Lambda handler to keep memory usage predictable.

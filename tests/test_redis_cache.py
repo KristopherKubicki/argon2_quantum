@@ -1,3 +1,6 @@
+import os
+os.environ.setdefault("QS_PEPPER", "x" * 32)
+
 import pytest
 from qs_kdf.core import RedisCache
 

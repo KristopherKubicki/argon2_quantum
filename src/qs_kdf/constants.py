@@ -3,13 +3,20 @@
 import os
 
 
-_DEFAULT_PEPPER = b"fixedPepper32B012345678901234567"  # 32 bytes used for tests
-
 
 def _load_pepper() -> bytes:
+    """Return 32-byte pepper from ``QS_PEPPER``.
+
+    Raises:
+        RuntimeError: When ``QS_PEPPER`` is unset or not 32 bytes.
+
+    Returns:
+        bytes: Pepper value.
+    """
+
     env = os.getenv("QS_PEPPER")
     if env is None:
-        return _DEFAULT_PEPPER
+        raise RuntimeError("QS_PEPPER environment variable required")
     value = env.encode()
     if len(value) != 32:
         raise RuntimeError("QS_PEPPER must be 32 bytes")

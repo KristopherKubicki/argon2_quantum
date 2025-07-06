@@ -1,3 +1,6 @@
+import os
+os.environ.setdefault("QS_PEPPER", "x" * 32)
+
 import base64
 import hashlib
 import ssl
