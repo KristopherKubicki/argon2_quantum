@@ -89,6 +89,15 @@ def test_cli_generates_salt(_pepper):
     assert verify_out == "OK"
 
 
+def test_cli_missing_pepper(monkeypatch, capsys):
+    monkeypatch.delenv("QS_PEPPER", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        cli_module.main(["hash", "pw", "--salt", "01" * 16])
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "QS_PEPPER environment variable required" in captured.err
+
+
 def test_cli_output_cloud(monkeypatch):
     def fake_handler(event: dict, _ctx: object) -> dict:
         return {"digest": "deadbeef"}
