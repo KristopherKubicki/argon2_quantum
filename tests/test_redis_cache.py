@@ -1,3 +1,4 @@
+import pytest
 from qs_kdf.core import RedisCache
 
 
@@ -46,3 +47,25 @@ def test_cache_hit_returns_cached_value():
     assert result == b"cached"
     assert client.get_calls == ["key"]
     assert client.setex_calls == []
+
+
+def test_invalid_ttl_raises_value_error():
+    client = MockRedisClient()
+    cache = RedisCache(client)
+
+    with pytest.raises(ValueError):
+        cache.get_or_set("key", 0, lambda: b"x")
+
+    with pytest.raises(ValueError):
+        cache.get_or_set("key", -1, lambda: b"x")
+
+
+def test_valid_ttl_is_accepted():
+    client = MockRedisClient()
+    cache = RedisCache(client)
+
+    result = cache.get_or_set("key", 10, lambda: b"y")
+
+    assert result == b"y"
+    assert client.setex_calls == [("key", 10, b"y")]
+
