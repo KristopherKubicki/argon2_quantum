@@ -7,6 +7,7 @@
 
 ## Table of Contents
 - [Background](#background)
+- [Quantum Circuit](#quantum-circuit)
 - [Quick Start](#quick-start)
 - [Infrastructure](#infrastructure)
 - [Development](#development)
@@ -17,6 +18,12 @@ This project demonstrates a minimal "quantum stretch". A tiny circuit runs on ma
 
 > **Security Notice**
 > The quantum stretch slows classical brute force attempts but offers no resistance once large fault‑tolerant quantum computers exist.
+
+## Quantum Circuit
+The library derives randomness from a short circuit applying Hadamard
+gates to eight qubits and measuring the result. Each shot yields one
+byte of entropy. See [docs/quantum-circuit.md](docs/quantum-circuit.md)
+for a step-by-step explanation.
 
 ## Quick Start
 ### Installation

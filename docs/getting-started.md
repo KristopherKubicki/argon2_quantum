@@ -145,8 +145,9 @@ Follow these steps to provision the cloud resources:
 ``REDIS_CERT_REQS`` defaults to ``required``. ``optional`` allows failures
 while keeping TLS enabled. Unverified TLS is no longer supported.
 
-The random bytes are fetched from AWS Braket by running a tiny circuit. Ensure
-your credentials permit Braket execution. See the
-[Braket documentation](https://docs.aws.amazon.com/braket/)
+The random bytes are fetched from AWS Braket by running a tiny circuit. The
+process is described in detail in
+[quantum-circuit.md](quantum-circuit.md). Ensure your credentials permit
+Braket execution. See the [Braket documentation](https://docs.aws.amazon.com/braket/)
 for further details. ``BraketBackend`` uses the IonQ device by default but you
 may pass ``device_arn`` to select a different ARN.
