@@ -10,10 +10,11 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 # Install only runtime dependencies
-
 pip install --quiet --target "$OUT" -r "$ROOT/requirements.txt"
-# Copy source code into build dir
-cp -r "$ROOT"/src/* "$OUT"/
+
+# Copy runtime modules into build dir
+cp -r "$ROOT/src/qs_kdf" "$OUT"
+cp "$ROOT/src/qsargon2.py" "$OUT"
 
 # Package all files into lambda.zip
 cd "$OUT" && zip -r ../lambda.zip .
