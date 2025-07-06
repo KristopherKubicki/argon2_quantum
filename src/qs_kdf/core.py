@@ -371,16 +371,24 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
         "Plaintext"
     ]
 
+    port_str = os.environ.get("REDIS_PORT", "6379")
+    try:
+        port = int(port_str)
+    except ValueError as exc:  # pragma: no cover - validated by tests
+        raise RuntimeError("REDIS_PORT must be an integer") from exc
+
     redis_opts = {
         "host": os.environ["REDIS_HOST"],
-        "port": int(os.environ.get("REDIS_PORT", "6379")),
+        "port": port,
     }
 
     if os.environ.get("REDIS_PASSWORD"):
         redis_opts["password"] = os.environ["REDIS_PASSWORD"]
 
     tls_env = os.environ.get("REDIS_TLS", "1").lower()
-    if tls_env not in {"0", "false", "no"}:
+    tls_true = {"1", "true", "yes"}
+    tls_false = {"0", "false", "no"}
+    if tls_env in tls_true:
         redis_opts["ssl"] = True
         cert_env = os.environ.get("REDIS_CERT_REQS", "required").lower()
         cert_map = {
@@ -390,6 +398,8 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
         if cert_env not in cert_map:
             raise RuntimeError("REDIS_CERT_REQS must be 'required' or 'optional'")
         redis_opts["ssl_cert_reqs"] = cert_map[cert_env]
+    elif tls_env not in tls_false:
+        raise RuntimeError("REDIS_TLS must be '1' or '0'")
 
     r = redis.Redis(**redis_opts)
     cache = RedisCache(r)
