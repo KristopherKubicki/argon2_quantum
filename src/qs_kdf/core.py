@@ -371,10 +371,12 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
         "Plaintext"
     ]
 
-    redis_opts = {
-        "host": os.environ["REDIS_HOST"],
-        "port": int(os.environ.get("REDIS_PORT", "6379")),
-    }
+    redis_opts = {"host": os.environ["REDIS_HOST"]}
+    port_str = os.environ.get("REDIS_PORT", "6379")
+    try:
+        redis_opts["port"] = int(port_str)
+    except ValueError as exc:
+        raise RuntimeError("REDIS_PORT must be an integer") from exc
 
     if os.environ.get("REDIS_PASSWORD"):
         redis_opts["password"] = os.environ["REDIS_PASSWORD"]
