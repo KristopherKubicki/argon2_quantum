@@ -1,0 +1,24 @@
+# Ignore version control system
+.git
+.github
+
+# Development and CI files
+.gitignore
+.pre-commit-config.yaml
+.bandit.yml
+.codex
+AGENTS.md
+CHANGELOG.md
+requirements-dev.txt
+
+# Documentation and tests
+/docs
+/tests
+/infra
+/scripts
+
+# Other
+Dockerfile
+.dockerignore
+
+
