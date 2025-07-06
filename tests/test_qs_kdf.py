@@ -497,6 +497,11 @@ def test_cli_invalid_digest(_pepper):
         cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
 
 
+def test_cli_digest_length(_pepper):
+    with pytest.raises(argparse.ArgumentTypeError):
+        cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "00" * 31])
+
+
 def test_cli_pepper_length(monkeypatch):
     monkeypatch.setenv("QS_PEPPER", "short")
     with pytest.raises(SystemExit):
