@@ -7,7 +7,6 @@ import time
 import types
 import hashlib
 from argon2.low_level import hash_secret_raw, Type
-from qs_kdf.constants import PEPPER
 
 import pytest
 
@@ -37,6 +36,8 @@ def test_hash_password_length():
 def _legacy_hash_password(
     password: str, salt: bytes, backend: qs_kdf.TestBackend
 ) -> bytes:
+    from qs_kdf.constants import PEPPER
+
     pre = hashlib.sha512(password.encode() + salt + PEPPER).digest()
     pre = hashlib.sha256(pre).digest()
     quantum = backend.run(pre)
