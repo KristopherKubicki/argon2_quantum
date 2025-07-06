@@ -89,8 +89,10 @@ pre-commit install
 Run the hooks and tests before committing:
 ```bash
 pre-commit run --files <files>
+pip install -r requirements.txt -r requirements-dev.txt
 pytest
 ```
+Missing packages such as `argon2-cffi` will cause test failures.
 Extra checks such as `mypy` or `bandit` are optional but recommended.
 
 ## License
