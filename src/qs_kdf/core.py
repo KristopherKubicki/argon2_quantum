@@ -356,7 +356,6 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     """
     import boto3  # type: ignore
     import redis  # type: ignore
-    from braket.aws import AwsDevice  # type: ignore
 
     evt = event if isinstance(event, HashEvent) else HashEvent.from_dict(event)
     salt_hex = evt.salt
@@ -427,8 +426,7 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     else:
         num_bytes = 10
     device_arn = device_arn or "arn:aws:braket:::device/qpu/ionq/ionQdevice"
-    device = AwsDevice(device_arn)
-    backend = BraketBackend(device=device, device_arn=device_arn, num_bytes=num_bytes)
+    backend = BraketBackend(device=None, device_arn=device_arn, num_bytes=num_bytes)
 
     def _producer() -> bytes:
         return backend.run(seed)

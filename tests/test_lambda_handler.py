@@ -136,6 +136,11 @@ def _setup_modules(
     )
     monkeypatch.setitem(
         sys.modules,
+        "botocore.exceptions",
+        types.SimpleNamespace(NoCredentialsError=Exception),
+    )
+    monkeypatch.setitem(
+        sys.modules,
         "braket.circuits",
         types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
     )
