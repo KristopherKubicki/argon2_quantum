@@ -10,15 +10,15 @@ pepper into stable digests.
 
 import base64
 import hashlib
-import os
-import ssl
-import secrets
-import threading
 import logging
+import os
+import secrets
+import ssl
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
-from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, PEPPER
+from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, get_pepper
 
 _warmed_up = False
 _warm_up_lock = threading.Lock()
@@ -101,7 +101,7 @@ def qstretch(password: str, salt: bytes, pepper: bytes | None = None) -> bytes:
         bytes: Final stretched digest.
     """
     if pepper is None:
-        pepper = PEPPER
+        pepper = get_pepper()
     if not isinstance(pepper, (bytes, bytearray)) or len(pepper) == 0:
         raise ValueError("pepper must be non-empty bytes")
     data = password.encode() + salt + pepper
@@ -135,8 +135,8 @@ class BraketBackend:
 
         if self.device is None:
             try:
-                from braket.aws import AwsDevice  # type: ignore
                 from botocore.exceptions import NoCredentialsError  # type: ignore
+                from braket.aws import AwsDevice  # type: ignore
             except ImportError as exc:  # pragma: no cover - optional
                 logging.getLogger(__name__).error("Braket import failed: %s", exc)
                 self._init_error = exc
@@ -215,7 +215,7 @@ def hash_password(
     if backend is None:
         backend = LocalBackend()
     if pepper is None:
-        pepper = PEPPER
+        pepper = get_pepper()
     pre = qstretch(password, salt, pepper=pepper)
     quantum = backend.run(pre)
     new_salt = salt + quantum
@@ -411,16 +411,12 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
     device_arn = (
         getattr(evt, "device_arn", None)
         if isinstance(event, HashEvent)
-        else event.get("device_arn")
-        if isinstance(event, Mapping)
-        else None
+        else event.get("device_arn") if isinstance(event, Mapping) else None
     )
     num_bytes = (
         getattr(evt, "num_bytes", None)
         if isinstance(event, HashEvent)
-        else event.get("num_bytes")
-        if isinstance(event, Mapping)
-        else None
+        else event.get("num_bytes") if isinstance(event, Mapping) else None
     )
     if num_bytes is not None:
         num_bytes = int(num_bytes)

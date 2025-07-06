@@ -6,16 +6,16 @@ import os
 import qs_kdf
 
 from .constants import (
+    MAX_MEMORY_COST,
+    MAX_PARALLELISM,
     MAX_PASSWORD_BYTES,
     MAX_SALT_BYTES,
-    MIN_TIME_COST,
     MAX_TIME_COST,
     MIN_MEMORY_COST,
-    MAX_MEMORY_COST,
     MIN_PARALLELISM,
-    MAX_PARALLELISM,
+    MIN_TIME_COST,
+    get_pepper,
 )
-
 from .core import LocalBackend, hash_password, lambda_handler, verify_password
 
 
@@ -97,14 +97,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             digest_hex = response["digest"]
         else:
-            pepper_env = os.getenv("QS_PEPPER")
-            if pepper_env is None:
+            if os.getenv("QS_PEPPER") is None:
                 parser.error("QS_PEPPER environment variable required")
-            pepper = pepper_env.encode()
-            if len(pepper) == 0:
-                parser.error("QS_PEPPER must not be empty")
-            if len(pepper) != 32:
-                parser.error("QS_PEPPER must be 32 bytes")
+            try:
+                pepper = get_pepper()
+            except RuntimeError as exc:
+                parser.error(str(exc))
             backend = LocalBackend()
             digest_hex = hash_password(
                 args.password,
@@ -126,14 +124,12 @@ def main(argv: list[str] | None = None) -> int:
             raise argparse.ArgumentTypeError(
                 f"invalid hex value for --digest: {args.digest}"
             ) from exc
-        pepper_env = os.getenv("QS_PEPPER")
-        if pepper_env is None:
+        if os.getenv("QS_PEPPER") is None:
             parser.error("QS_PEPPER environment variable required")
-        pepper = pepper_env.encode()
-        if len(pepper) == 0:
-            parser.error("QS_PEPPER must not be empty")
-        if len(pepper) != 32:
-            parser.error("QS_PEPPER must be 32 bytes")
+        try:
+            pepper = get_pepper()
+        except RuntimeError as exc:
+            parser.error(str(exc))
         backend = LocalBackend()
         ok = verify_password(
             args.password,

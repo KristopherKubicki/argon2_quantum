@@ -53,8 +53,9 @@ In this demo it returns a fixed value but shows how the API would be used in
 production.
 
 The repository ships with a static 32-byte pepper used for these examples.
-Set ``QS_PEPPER`` to override it when running locally and replace it with your
-own secret when deploying.
+``qs_kdf.constants.get_pepper()`` reads ``QS_PEPPER`` each time a hash is
+computed. Set this variable when running locally and replace it with your own
+secret when deploying.
 
 Passwords longer than 64 bytes or salts over 32 bytes are rejected by both
 the CLI and Lambda handler to keep memory usage predictable.

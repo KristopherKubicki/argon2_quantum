@@ -49,8 +49,9 @@ for consistent benchmarking.
 
 ### QS_PEPPER
 
-Local hashing fails unless ``QS_PEPPER`` is set to a 32-byte secret. Export
-your own value before invoking the CLI. See
+The pepper is loaded at runtime using ``qs_kdf.constants.get_pepper()``. Set
+``QS_PEPPER`` to a 32-byte secret to override the shipped default. The CLI
+requires this variable for local hashing. See
 [docs/getting-started.md](docs/getting-started.md) for details.
 
 The ``BraketBackend`` defaults to the IonQ QPU but accepts a ``device_arn``

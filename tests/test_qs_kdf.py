@@ -1,17 +1,17 @@
 import argparse
 import contextlib
+import hashlib
 import importlib
 import io
 import sys
 import time
 import types
-import hashlib
-from argon2.low_level import hash_secret_raw, Type
-from qs_kdf.constants import PEPPER
 
 import pytest
+from argon2.low_level import Type, hash_secret_raw
 
 import qs_kdf
+from qs_kdf import constants
 
 cli_module = importlib.import_module("qs_kdf.cli")
 
@@ -19,12 +19,6 @@ cli_module = importlib.import_module("qs_kdf.cli")
 @pytest.fixture()
 def _pepper(monkeypatch):
     monkeypatch.setenv("QS_PEPPER", "x" * 32)
-    import qs_kdf.constants as constants
-
-    monkeypatch.setattr(constants, "PEPPER", b"x" * 32, raising=False)
-    import qs_kdf.core as core
-
-    monkeypatch.setattr(core, "PEPPER", b"x" * 32, raising=False)
 
 
 def test_hash_password_length():
@@ -37,7 +31,7 @@ def test_hash_password_length():
 def _legacy_hash_password(
     password: str, salt: bytes, backend: qs_kdf.TestBackend
 ) -> bytes:
-    pre = hashlib.sha512(password.encode() + salt + PEPPER).digest()
+    pre = hashlib.sha512(password.encode() + salt + constants.get_pepper()).digest()
     pre = hashlib.sha256(pre).digest()
     quantum = backend.run(pre)
     new_salt = salt + quantum
