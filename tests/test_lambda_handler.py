@@ -255,3 +255,27 @@ def test_lambda_handler_port_out_of_range(monkeypatch, _env):
     event = asdict(HashEvent(password="pw", salt="56" * 16))
     with pytest.raises(RuntimeError, match="REDIS_PORT must be between 1 and 65535"):
         lambda_handler(event, None)
+
+
+def test_lambda_handler_invalid_num_bytes(monkeypatch, _env):
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="66" * 16))
+    event["num_bytes"] = "oops"
+    with pytest.raises(RuntimeError, match="num_bytes must be an integer"):
+        lambda_handler(event, None)
+
+
+def test_lambda_handler_negative_num_bytes(monkeypatch, _env):
+    redis_client = FakeRedisClient()
+    kms = FakeKMS(b"pepper", b"cipher")
+    device = FakeBraketDevice("10101010")
+    _setup_modules(monkeypatch, kms, redis_client, device)
+
+    event = asdict(HashEvent(password="pw", salt="77" * 16))
+    event["num_bytes"] = -1
+    with pytest.raises(RuntimeError, match="num_bytes must be a positive integer"):
+        lambda_handler(event, None)

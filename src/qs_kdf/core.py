@@ -424,9 +424,14 @@ def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
         else None
     )
     if num_bytes is not None:
-        num_bytes = int(num_bytes)
+        try:
+            num_bytes = int(num_bytes)
+        except Exception as exc:
+            raise RuntimeError("num_bytes must be an integer") from exc
     else:
         num_bytes = 10
+    if num_bytes <= 0:
+        raise RuntimeError("num_bytes must be a positive integer")
     device_arn = device_arn or "arn:aws:braket:::device/qpu/ionq/ionQdevice"
     backend = BraketBackend(device=None, device_arn=device_arn, num_bytes=num_bytes)
 
