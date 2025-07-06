@@ -67,7 +67,10 @@ if os.getenv("QS_WARMUP"):
 
 class Backend(Protocol):
     def run(self, seed: bytes) -> bytes:
-        """Return one byte derived from ``seed``."""
+        """Return bytes derived from ``seed``.
+
+        Length of the returned bytes depends on the backend.
+        """
 
 
 @dataclass
