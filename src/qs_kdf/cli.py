@@ -126,6 +126,10 @@ def main(argv: list[str] | None = None) -> int:
             raise argparse.ArgumentTypeError(
                 f"invalid hex value for --digest: {args.digest}"
             ) from exc
+        if len(digest) != 32:
+            raise argparse.ArgumentTypeError(
+                f"--digest must decode to 32 bytes, got {len(digest)}"
+            )
         pepper_env = os.getenv("QS_PEPPER")
         if pepper_env is None:
             parser.error("QS_PEPPER environment variable required")
