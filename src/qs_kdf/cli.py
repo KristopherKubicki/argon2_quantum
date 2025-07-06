@@ -69,9 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(salt) > MAX_SALT_BYTES:
         parser.error(f"salt exceeds {MAX_SALT_BYTES} bytes")
     if not (MIN_TIME_COST <= args.time_cost <= MAX_TIME_COST):
-        parser.error(
-            f"--time-cost must be between {MIN_TIME_COST} and {MAX_TIME_COST}"
-        )
+        parser.error(f"--time-cost must be between {MIN_TIME_COST} and {MAX_TIME_COST}")
     if not (MIN_MEMORY_COST <= args.memory_cost <= MAX_MEMORY_COST):
         parser.error(
             f"--memory-cost must be between {MIN_MEMORY_COST} and {MAX_MEMORY_COST}"
@@ -105,6 +103,8 @@ def main(argv: list[str] | None = None) -> int:
             pepper = pepper_env.encode()
             if len(pepper) == 0:
                 parser.error("QS_PEPPER must not be empty")
+            if len(pepper) != 32:
+                parser.error("QS_PEPPER must be 32 bytes")
             backend = LocalBackend()
             digest_hex = hash_password(
                 args.password,
@@ -132,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
         pepper = pepper_env.encode()
         if len(pepper) == 0:
             parser.error("QS_PEPPER must not be empty")
+        if len(pepper) != 32:
+            parser.error("QS_PEPPER must be 32 bytes")
         backend = LocalBackend()
         ok = verify_password(
             args.password,
