@@ -20,8 +20,10 @@ cli_module = importlib.import_module("qs_kdf.cli")
 def _pepper(monkeypatch):
     monkeypatch.setenv("QS_PEPPER", "x" * 32)
     import qs_kdf.constants as constants
+
     monkeypatch.setattr(constants, "PEPPER", b"x" * 32, raising=False)
     import qs_kdf.core as core
+
     monkeypatch.setattr(core, "PEPPER", b"x" * 32, raising=False)
 
 
@@ -484,6 +486,12 @@ def test_cli_invalid_salt(_pepper):
 def test_cli_invalid_digest(_pepper):
     with pytest.raises(argparse.ArgumentTypeError):
         cli_module.main(["verify", "pw", "--salt", "01" * 16, "--digest", "zz"])
+
+
+def test_cli_pepper_length(monkeypatch):
+    monkeypatch.setenv("QS_PEPPER", "short")
+    with pytest.raises(SystemExit):
+        cli_module.main(["hash", "pw", "--salt", "01" * 16])
 
 
 @pytest.mark.parametrize("missing", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
