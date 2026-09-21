@@ -11,6 +11,15 @@ Read the [design review](docs/security/design-review.md) and
 [release checklist](docs/runbook.md) before deploying. This is password hashing,
 not reversible encryption or a post-quantum algorithm.
 
+## Quantum Annoying Lab
+
+Can a captured login force an attacker to solve different discrete logarithms
+for different password guesses? The [research lab](research/README.md) explores
+that question with a reproducible toy protocol, executable attacks, and an
+[interactive results report](research/results/index.html) (download and open locally).
+This is source-only research, excluded from the production wheel. It is not a
+deployable cryptographic construction or a claim of measured quantum resistance.
+
 ## Quick start
 
 Python 3.10+:
