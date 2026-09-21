@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Configure runtimes
 export CODEX_ENV_PYTHON_VERSION="3.12"
-export CODEX_ENV_NODE_VERSION="20"
+export CODEX_ENV_NODE_VERSION="22"
 if [ -f /opt/codex/setup_universal.sh ]; then
     # shellcheck disable=SC1091
     source /opt/codex/setup_universal.sh || true

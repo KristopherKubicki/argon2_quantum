@@ -1,0 +1,12 @@
+{
+  "python": "3.12.3",
+  "platform": "Linux-6.8.0-101-generic-x86_64-with-glibc2.39",
+  "samples": 30,
+  "memory_kib": 65536,
+  "passes": 3,
+  "lanes": 4,
+  "median_ms": 39.23,
+  "p95_ms": 54.56,
+  "max_ms": 55.05,
+  "scope": "single-process local HMAC; excludes KMS, network and Lambda cold starts"
+}

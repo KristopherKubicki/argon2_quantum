@@ -8,17 +8,15 @@ from AWS Braket devices when available. The exported ``hash_password`` and
 pepper into stable digests.
 """
 
-import base64
 import hashlib
 import os
-import ssl
 import secrets
 import threading
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Callable, Protocol
 
-from .constants import MAX_PASSWORD_BYTES, MAX_SALT_BYTES, PEPPER
+from .constants import _load_pepper
 
 _warmed_up = False
 _warm_up_lock = threading.Lock()
@@ -61,7 +59,7 @@ except Exception as exc:  # pragma: no cover - enforce dependency
         "argon2-cffi must be installed; run 'pip install argon2-cffi'"
     ) from exc
 
-if os.getenv("QS_WARMUP"):
+if os.getenv("QS_WARMUP") == "1":
     _warm_up()
 
 
@@ -101,7 +99,7 @@ def qstretch(password: str, salt: bytes, pepper: bytes | None = None) -> bytes:
         bytes: Final stretched digest.
     """
     if pepper is None:
-        pepper = PEPPER
+        pepper = _load_pepper()
     if not isinstance(pepper, (bytes, bytearray)) or len(pepper) == 0:
         raise ValueError("pepper must be non-empty bytes")
     data = password.encode() + salt + pepper
@@ -114,7 +112,7 @@ class BraketBackend:
     """Backend fetching random bytes from AWS Braket."""
 
     device: Any | None = None
-    device_arn: str = "arn:aws:braket:::device/qpu/ionq/ionQdevice"
+    device_arn: str = ""
     num_bytes: int = 10
     _init_error: Exception | None = field(init=False, default=None)
 
@@ -130,8 +128,8 @@ class BraketBackend:
             ``device_arn`` to select a different quantum device.
         """
 
-        if not isinstance(self.num_bytes, int) or self.num_bytes <= 0:
-            raise ValueError("num_bytes must be a positive integer")
+        if type(self.num_bytes) is not int or not 1 <= self.num_bytes <= 4096:
+            raise ValueError("num_bytes must be an integer between 1 and 4096")
 
         if self.device is None:
             try:
@@ -144,6 +142,8 @@ class BraketBackend:
                 return
 
             try:
+                if not self.device_arn:
+                    raise ValueError("an explicit Braket device ARN is required")
                 self.device = AwsDevice(self.device_arn)
             except NoCredentialsError as exc:  # pragma: no cover - optional
                 logging.getLogger(__name__).error("AWS credentials missing: %s", exc)
@@ -178,15 +178,28 @@ class BraketBackend:
         except ImportError as exc:  # pragma: no cover - optional
             raise RuntimeError("Braket backend unavailable") from exc
 
-        circuit = Circuit().h(range(8)).measure(range(8))
-        task = self.device.run(circuit, shots=self.num_bytes)
-        result = task.result()
-        result_bytes = bytearray()
-        for bits, count in result.measurement_counts.items():
-            result_bytes.extend(int(bits, 2).to_bytes(1, "big") * count)
-        if len(result_bytes) != self.num_bytes:
-            raise RuntimeError("measurement count mismatch")
-        return bytes(result_bytes)
+        try:
+            circuit = Circuit().h(range(8)).measure(range(8))
+            task = self.device.run(
+                circuit, shots=self.num_bytes, poll_timeout_seconds=120
+            )
+            result = task.result()
+            measurements = result.measurements
+            if len(measurements) != self.num_bytes:
+                raise ValueError("measurement count mismatch")
+            result_bytes = bytearray()
+            for row in measurements:
+                if len(row) != 8 or any(bit not in (0, 1) for bit in row):
+                    raise ValueError("invalid measurement bits")
+                value = 0
+                for bit in row:
+                    value = (value << 1) | int(bit)
+                result_bytes.append(value)
+            return bytes(result_bytes)
+        except Exception:
+            raise RuntimeError(
+                "Braket execution or measurement validation failed"
+            ) from None
 
 
 def hash_password(
@@ -198,7 +211,9 @@ def hash_password(
     memory_cost: int = 262_144,
     parallelism: int = 4,
 ) -> bytes:
-    """Compute Argon2id digest with quantum salt bytes.
+    """Legacy v0.1 digest. For new records use records.PasswordHasher.
+
+    A nondeterministic backend cannot be verified without its exact saved bytes.
 
     Args:
         password: Password string to hash.
@@ -215,7 +230,7 @@ def hash_password(
     if backend is None:
         backend = LocalBackend()
     if pepper is None:
-        pepper = PEPPER
+        pepper = _load_pepper()
     pre = qstretch(password, salt, pepper=pepper)
     quantum = backend.run(pre)
     new_salt = salt + quantum
@@ -304,153 +319,8 @@ class RedisCache:
         return value
 
 
-@dataclass
-class HashEvent:
-    """Invocation payload for :func:`lambda_handler`."""
+def lambda_handler(event, context) -> dict:
+    """Compatibility import for the v2 service; legacy cloud hashing is disabled."""
+    from .service import lambda_handler as handler
 
-    password: str
-    salt: str
-
-    @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "HashEvent":
-        """Return ``HashEvent`` built from ``data``.
-
-        Args:
-            data: Mapping with keys ``"password"`` and ``"salt"``.
-
-        Returns:
-            HashEvent: Parsed event object.
-
-        Raises:
-            KeyError: If a required field is missing.
-            TypeError: If ``data`` is not a mapping or values are not strings.
-        """
-        if not isinstance(data, Mapping):
-            raise TypeError("event must be a mapping")
-        try:
-            password = data["password"]
-            salt = data["salt"]
-        except KeyError as exc:  # pragma: no cover - tested indirectly
-            raise KeyError(f"missing field: {exc.args[0]}") from exc
-        if not isinstance(password, str) or not isinstance(salt, str):
-            raise TypeError("password and salt must be strings")
-        return cls(password=password, salt=salt)
-
-
-def lambda_handler(event: Mapping[str, Any] | HashEvent, _ctx) -> dict:
-    """Handle Argon2id hashing request via AWS Lambda.
-
-    Args:
-        event: Invocation payload containing ``salt`` and ``password``.
-            Optional keys ``"device_arn"`` and ``"num_bytes"`` select the
-            Braket device and the number of bytes to fetch.
-        _ctx: Lambda context object (unused).
-
-    Returns:
-        dict: Response with hex digest under "digest".
-
-    Raises:
-        KeyError: If ``event`` is missing required fields.
-        RuntimeError: If required environment variables are absent.
-        TypeError: If ``event`` is not a valid mapping or strings.
-    """
-    import boto3  # type: ignore
-    import redis  # type: ignore
-
-    evt = event if isinstance(event, HashEvent) else HashEvent.from_dict(event)
-    salt_hex = evt.salt
-    password = evt.password
-
-    required_vars = ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]
-    missing = [var for var in required_vars if var not in os.environ]
-    if missing:
-        raise RuntimeError(
-            "missing environment variables: " + ", ".join(sorted(missing))
-        )
-
-    kms_key = os.environ["KMS_KEY_ID"]
-    cipher_b64 = os.environ["PEPPER_CIPHERTEXT"]
-
-    kms = boto3.client("kms")
-    pepper = kms.decrypt(KeyId=kms_key, CiphertextBlob=base64.b64decode(cipher_b64))[
-        "Plaintext"
-    ]
-
-    redis_opts = {"host": os.environ["REDIS_HOST"]}
-    port_str = os.environ.get("REDIS_PORT", "6379")
-    try:
-        redis_opts["port"] = int(port_str)
-    except ValueError as exc:
-        raise RuntimeError("REDIS_PORT must be an integer") from exc
-    if not 1 <= redis_opts["port"] <= 65535:
-        raise RuntimeError("REDIS_PORT must be between 1 and 65535")
-
-    if os.environ.get("REDIS_PASSWORD"):
-        redis_opts["password"] = os.environ["REDIS_PASSWORD"]
-
-    tls_env = os.environ.get("REDIS_TLS", "1").lower()
-    if tls_env not in {"0", "false", "no"}:
-        redis_opts["ssl"] = True
-        cert_env = os.environ.get("REDIS_CERT_REQS", "required").lower()
-        cert_map = {
-            "optional": ssl.CERT_OPTIONAL,
-            "required": ssl.CERT_REQUIRED,
-        }
-        if cert_env not in cert_map:
-            raise RuntimeError("REDIS_CERT_REQS must be 'required' or 'optional'")
-        redis_opts["ssl_cert_reqs"] = cert_map[cert_env]
-
-    r = redis.Redis(**redis_opts)
-    cache = RedisCache(r)
-    seed = bytes.fromhex(salt_hex)
-    if len(password.encode()) > MAX_PASSWORD_BYTES:
-        raise ValueError(f"password may not exceed {MAX_PASSWORD_BYTES} bytes")
-    if len(seed) > MAX_SALT_BYTES:
-        raise ValueError(f"salt may not exceed {MAX_SALT_BYTES} bytes")
-    key = hashlib.sha256(seed).hexdigest()
-
-    device_arn = (
-        getattr(evt, "device_arn", None)
-        if isinstance(event, HashEvent)
-        else event.get("device_arn")
-        if isinstance(event, Mapping)
-        else None
-    )
-    num_bytes = (
-        getattr(evt, "num_bytes", None)
-        if isinstance(event, HashEvent)
-        else event.get("num_bytes")
-        if isinstance(event, Mapping)
-        else None
-    )
-    if num_bytes is not None:
-        try:
-            num_bytes = int(num_bytes)
-        except Exception as exc:
-            raise RuntimeError("num_bytes must be an integer") from exc
-    else:
-        num_bytes = 10
-    if num_bytes <= 0:
-        raise RuntimeError("num_bytes must be a positive integer")
-    device_arn = device_arn or "arn:aws:braket:::device/qpu/ionq/ionQdevice"
-    backend = BraketBackend(device=None, device_arn=device_arn, num_bytes=num_bytes)
-
-    def _producer() -> bytes:
-        return backend.run(seed)
-
-    quantum_bytes = cache.get_or_set(key, 120, _producer)
-
-    class FixedBackend:
-        def __init__(self, byte: bytes) -> None:
-            self.byte = byte
-
-        def run(self, _seed: bytes) -> bytes:
-            return self.byte
-
-    digest = hash_password(
-        password,
-        seed,
-        pepper=pepper,
-        backend=FixedBackend(quantum_bytes),
-    )
-    return {"digest": digest.hex()}
+    return handler(event, context)

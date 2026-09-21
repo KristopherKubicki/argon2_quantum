@@ -68,4 +68,3 @@ def test_valid_ttl_is_accepted():
 
     assert result == b"y"
     assert client.setex_calls == [("key", 10, b"y")]
-

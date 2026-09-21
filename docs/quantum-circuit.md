@@ -1,35 +1,29 @@
-# Quantum Circuit
+# Optional quantum entropy experiment
 
-This document explains the tiny circuit used by `BraketBackend` to
-produce random bytes. The implementation relies on a simple pattern of
-Hadamard gates followed by measurements.
+`BraketBackend` prepares eight qubits with Hadamard gates and measures each in the
+computational basis. It requests ten shots by default, validates the number and
+width of measurement rows, and converts each row to a byte in shot order.
+Count histograms are not expanded into ordered measurements: doing so groups
+repeated outcomes and changes the sequence distribution.
 
-## Overview
+In an ideal noiseless model these are independent uniform bits. Real hardware
+has noise and bias; the adapter provides no randomness certification, entropy
+estimation, health test, or attestation. Some devices/results may derive samples
+from probabilities. See [AWS result semantics](https://docs.aws.amazon.com/braket/latest/developerguide/braket-result-types.html).
 
-1. **Initialization** – The circuit allocates eight qubits starting in
-the |0⟩ ground state.
-2. **Superposition** – A Hadamard gate `H` is applied to each qubit.
-   This transforms |0⟩ into 1/√2(|0⟩ + |1⟩), yielding a uniform
-   probability of measuring 0 or 1.
-3. **Measurement** – All qubits are measured in the computational
-   basis. Each shot returns eight classical bits.
-4. **Byte assembly** – The backend requests `num_bytes` shots. Each
-   result is converted from binary to an integer between 0 and 255 and
-   appended to a byte array.
+The circuit is efficiently classically simulable and ignores the supplied legacy
+seed argument. It does not force an attacker to use quantum hardware or buy AWS
+calls. Optional use in v0.2 only supplements mandatory OS randomness when forming
+the public salt. Do not use this adapter alone to generate encryption keys.
 
-The procedure uses real hardware when available. Errors during
-initialization leave the backend in a disabled state, raising a
-`RuntimeError` on first use.
+An explicit device ARN is required; there is no assumed current IonQ device.
+Install the quantum extra and configure AWS credentials. Initialization failures
+are retained and raised as RuntimeError when run is attempted. Execution or
+malformed measurements fail closed, with no fake-randomness fallback. The adapter
+bounds shot requests to 1–4096 and waits at most 120 seconds via the SDK polling
+option. Account permissions, budgets, and device availability remain operator
+responsibilities. This path was tested with mocks, not paid live hardware.
 
-## Why this works
-
-Measuring a qubit prepared with a Hadamard gate yields 0 or 1 with equal
-probability. Repeating the circuit provides a stream of unbiased random
-bits. Grouping eight bits forms a single byte. The simple structure
-avoids entanglement and keeps device execution time minimal while still
-leveraging quantum randomness.
-
-For development or offline operation, the library ships with a
-`LocalBackend` that deterministically hashes the stretched password to
-produce the same number of bytes. This makes tests reproducible without
-AWS access.
+The legacy LocalBackend is deterministic SHA-512, not a quantum simulator. It is
+kept solely for reproducing old local hashes. New local enrollment uses the
+operating system's cryptographic randomness.

@@ -1,117 +1,94 @@
-# Argon2 Quantum
+# Argon2 Quantum / Quantum Speedbump
 
-[![CI](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml/badge.svg)](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/KristopherKubicki/argon2_quantum/graph/badge.svg?token=JuPPmkMFxR)](https://codecov.io/gh/KristopherKubicki/argon2_quantum)
+Versioned Argon2id password records protected by a local pepper or a
+non-exportable AWS KMS HMAC key. Optional quantum measurements can supplement
+salt generation at enrollment; verification is independent of Braket and Redis.
 
-**Quantum-enhanced Argon2 with a dash of real qubits.** The library fetches ten bytes of entropy from AWS Braket and folds them into the salt before running a classic Argon2 hash. The approach increases the cost of large-scale offline attacks, though it is *not* a post‑quantum scheme.
+**Status:** v0.2 is a breaking-format release candidate. The original quantum
+work-factor claim was not supported by the circuit. The replacement's security
+boundary is Argon2 plus protected-key access, not quantum computational hardness.
+Read the [design review](docs/security/design-review.md) and
+[release checklist](docs/runbook.md) before deploying. This is password hashing,
+not reversible encryption or a post-quantum algorithm.
 
-## Table of Contents
-- [Background](#background)
-- [Quantum Circuit](#quantum-circuit)
-- [Quick Start](#quick-start)
-- [Infrastructure](#infrastructure)
-- [Development](#development)
-- [License](#license)
+## Quick start
 
-## Background
-This project demonstrates a minimal "quantum stretch". A tiny circuit runs on managed quantum hardware or the simulator and returns ten truly random bytes. These bytes are appended to your chosen salt and fed into a normal Argon2 hashing step. The extra call to Braket raises the attacker's cost because each password guess must repeat the service call.
+Python 3.10+:
 
-> **Security Notice**
-> The quantum stretch slows classical brute force attempts but offers no resistance once large fault‑tolerant quantum computers exist.
-
-## Quantum Circuit
-The library derives randomness from a short circuit applying Hadamard
-gates to eight qubits and measuring the result. Each shot yields one
-byte of entropy. See [docs/quantum-circuit.md](docs/quantum-circuit.md)
-for a step-by-step explanation.
-
-## Quick Start
-### Installation
 ```bash
-pip install .
-python -m qs_kdf hash mypassword --salt deadbeefcafebabe
-
-# or let the CLI pick a salt for you
-python -m qs_kdf hash mypassword
+python -m pip install .
+# Generate once and store securely, separately from the password database.
+export QS_PEPPER_HEX="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+qs_kdf hash
+# Save the entire printed record; verification prompts for the password.
+qs_kdf verify --record '$qs$2$argon2id$...'
 ```
 
-### Hash a password
-```bash
-python -m qs_kdf hash "mypassword" --salt deadbeefcafebabe
+Use `--password-stdin` for automation. Passwords are not accepted as command-line
+arguments. Do not generate a new pepper at every application start. Back up the
+pepper securely: losing it prevents verification of its records.
+
+```python
+from qs_kdf import LocalPepper, PasswordHasher
+
+# Obtain 32 random secret bytes from your secret manager.
+hasher = PasswordHasher(LocalPepper({"k1": secret_key}), current_key_id="k1")
+record = hasher.hash("a user-supplied passphrase")
+# Save record in the user's row. No additional salt/cache state is needed.
+valid = hasher.verify("a user-supplied passphrase", record)
+if valid and hasher.needs_rehash(record):
+    replacement = hasher.hash("a user-supplied passphrase")
+    # Atomically replace the old record in your database.
 ```
 
-When no salt is provided the CLI prints the generated salt and digest separated
-by a space. The salt must be saved for verification.
+## AWS service
 
-```bash
-$ python -m qs_kdf hash mypassword
-0123456789abcdef0123456789abcdef deadbeef...
+Install `.[aws]` for the KMS provider. The [CDK deployment](docs/deployment.md)
+creates a private Lambda, retained HMAC key, logs, and alarms. It requires IAM
+invocation permissions and exposes no public HTTP endpoint. The application
+handles user authorization, rate limits, and durable record storage.
+
+```json
+{"action":"hash","password":"a user-supplied passphrase"}
 ```
 
-Running without `--cloud` keeps all computation local using the built-in
-simulator backend.
+Returns `{"record":"$qs$2$..."}`. Verify using:
 
-Set ``QS_WARMUP=1`` or call ``qs_kdf.warm_up()`` to preload Argon2 memory
-for consistent benchmarking.
-
-
-### QS_PEPPER
-
-The pepper in [src/qs_kdf/constants.py](src/qs_kdf/constants.py) is
-included only so the examples run out of the box. Local hashing fails
-unless ``QS_PEPPER`` is set to a 32-byte secret. Export your own value
-before invoking the CLI. See
-[docs/getting-started.md](docs/getting-started.md) lines 55-57 and 67 for
-instructions on overriding ``QS_PEPPER``. Always set a unique 32-byte
-secret in any production environment.
-
-The ``BraketBackend`` defaults to the IonQ QPU but accepts a ``device_arn``
-parameter if you wish to target a different device.
-
-The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) can be deployed
-with a single command:
-
-```bash
-cd infra && cdk deploy
+```json
+{"action":"verify","password":"a user-supplied passphrase","record":"$qs$2$..."}
 ```
 
-Verify:
+Returns `{"valid":true,"needs_rehash":false}`. Treat provider errors as service
+unavailability. See [protocol details](docs/KDF.md) and [operations](docs/runbook.md).
+
+## Optional quantum experiment
+
+Install `.[quantum]` and supply an explicit Braket device ARN:
 
 ```bash
-python -m qs_kdf verify "mypassword" --salt deadbeefcafebabe --digest <hex>
+qs_kdf hash --quantum-device-arn '<device-arn>'
 ```
 
-Running without `--cloud` keeps everything local using the built-in simulator. For a deeper walkthrough see [docs/getting-started.md](docs/getting-started.md).
+This requests a paid Braket task at enrollment and fails if the backend fails.
+It is not part of the deployed login service. The normal verification command
+uses the persisted record and requires no QPU. See [quantum circuit](docs/quantum-circuit.md).
 
-## Infrastructure
-The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) deploys the Lambda function, KMS key and supporting resources. Validate locally:
-```bash
-cd infra
-cdk synth
-```
-Deploy with `cdk deploy` or use the included Terraform module:
-```bash
-terraform -chdir=terraform apply
-```
-More background is available in the documents under [`docs/`](docs/).
-See [docs/lambda-build.md](docs/lambda-build.md) for instructions on
-packaging the Lambda function.
-See [docs/deployment.md](docs/deployment.md) for AWS setup and
-deployment steps.
+## Migration and development
 
-## Development
-Use Python 3.10 or newer. Install the hooks once:
+- [Getting started and keyrings](docs/getting-started.md)
+- [v0.1 migration](docs/migration.md)
+- [Lambda packaging](docs/lambda-build.md)
+
 ```bash
+python -m pip install -e '.[dev]'
 pre-commit install
+pre-commit run --all-files
+pytest --cov=qs_kdf --cov-report=term-missing --cov-fail-under=85
 ```
-Run the hooks and tests before committing:
-```bash
-pre-commit run --files <files>
-pip install -r requirements.txt -r requirements-dev.txt
-pytest
-```
-Missing packages such as `argon2-cffi` will cause test failures.
-Extra checks such as `mypy` or `bandit` are optional but recommended.
 
-## License
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Runtime AWS dependencies are hash-locked in `requirements-lambda.txt`. CI checks
+Python 3.10–3.14, tests the deployment artifact, audits the AWS runtime lock, and
+requires infrastructure synthesis to succeed. Live AWS acceptance and external
+security review remain release gates; local tests do not replace them.
+
+MIT licensed. See [LICENSE](LICENSE).

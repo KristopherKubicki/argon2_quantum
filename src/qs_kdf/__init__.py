@@ -13,8 +13,24 @@ from .core import (
     qstretch,
     verify_password,
 )
-from .cli import main as cli
 from .test_backend import TestBackend
+from .records import (
+    InvalidRecord,
+    LocalPepper,
+    Parameters,
+    PasswordHasher,
+    PasswordRecord,
+    ProviderUnavailable,
+    UnknownKey,
+    VerificationLimits,
+)
+
+
+def cli(argv=None):
+    from .cli import main
+
+    return main(argv)
+
 
 _pyproject = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
 
@@ -33,6 +49,14 @@ except PackageNotFoundError:
     __version__ = _read_version(_pyproject)
 
 __all__ = [
+    "PasswordHasher",
+    "PasswordRecord",
+    "Parameters",
+    "VerificationLimits",
+    "LocalPepper",
+    "InvalidRecord",
+    "UnknownKey",
+    "ProviderUnavailable",
     "lambda_handler",
     "cli",
     "TestBackend",

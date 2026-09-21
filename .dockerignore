@@ -22,3 +22,16 @@ Dockerfile
 .dockerignore
 
 
+
+.venv
+venv
+.uv-cache
+build
+dist
+cdk.out
+**/__pycache__
+*.egg-info
+.pytest_cache
+.ruff_cache
+.coverage
+coverage.xml

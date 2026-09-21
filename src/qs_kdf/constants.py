@@ -13,7 +13,12 @@ def _load_pepper() -> bytes:
     return value
 
 
-PEPPER = _load_pepper()
+# Resolve only when an explicit legacy operation needs it, never at import time.
+def __getattr__(name: str):
+    if name == "PEPPER":
+        return _load_pepper()
+    raise AttributeError(name)
+
 
 # Maximum lengths enforced by the CLI and Lambda handler
 MAX_PASSWORD_BYTES = 64
