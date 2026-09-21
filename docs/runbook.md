@@ -1,36 +1,71 @@
-# QS KDF Runbook
+# Release and operations runbook
 
-## Cache Keys
+## Local release gates
 
-Redis keys derive from `sha256(salt)` with a 120s TTL. Cached quantum bytes
-avoid repeated Braket calls. The cache window slightly reduces entropy but keeps
-latency acceptable for interactive logins.
+- Full tests including negative-input, rotation, concurrency, and legacy regressions.
+- Ruff lint/format, Bandit, and required pre-commit checks.
+- Hash-locked AWS runtime passes dependency audit.
+- Wheel/sdist build; fresh artifact works outside the source tree without secrets
+  at import time; Argon2 native extension loads.
+- Actual packaged Lambda asset synthesizes; template tests assert retained keys,
+  private access, constrained IAM permissions, and capacity settings.
 
-Recent versions request all ten quantum shots in a single `device.run` call.
-This reduces network latency and simplifies error handling compared to the
-previous per-shot loop.
+## Live acceptance gates
 
-## Failure Modes
+These checks require the target AWS account and application integration. Passing
+local tests is not evidence that these gates have passed.
 
-* **Braket Timeout**: Step Function enforces a 200 ms deadline. Invocations
-  exceeding this limit return an error.
-* **Braket Failure**: Lambda returns an error; monitoring via CloudWatch.
-* **Redis Unavailable**: Lambda proceeds without cache and stores result when
-possible.
+1. Invoke real KMS-backed enrollment and verification with an authorized test
+   application. Test wrong passwords, fresh Lambda instances, and cold starts.
+2. Confirm an unauthorized principal cannot invoke the function or use its KMS
+   keys. Inspect deployed IAM/key policies, not just the CDK source.
+3. Load-test realistic password traffic. Record p50/p95/p99 latency, cold starts,
+   memory usage, throttles and cost. Configure per-account and per-source rate
+   limits at the application. Reserved concurrency alone is insufficient.
+4. Revoke key access in staging and verify the application returns an availability
+   error without fallback or password reset. Restore access and confirm records
+   still verify.
+5. Rotate to a second retained key. Verify records for both generations, test
+   on-login replacement, then restore a backup needing the old key.
+6. Connect alarms to an owned incident destination and test delivery. Audit logs
+   and traces for accidental passwords or raw hash intermediates; disable SDK
+   debug logging in production.
+7. Review record-to-account integrity, generic login errors, account recovery,
+   MFA/session handling, and atomic migration in the consuming application.
+8. Obtain independent security review of the record protocol and integration.
 
-## Two-Hash Migration
+## Failure handling
 
-Passwords are hashed with the old method and the quantum-extended version in
-parallel. After all users rotate their credentials, the quantum layer can be
-removed without disrupting verification.
+- `ProviderUnavailable`: transient protected-key failure, not a bad password.
+  Return an appropriate service-unavailable response. Do not retry without bounds
+  or fall back to a local/unpeppered verifier. KMS client retries are bounded.
+- `UnknownKey`: keyring, rotation, or restore problem. Preserve the record and
+  investigate configuration. Do not silently select the current key.
+- `InvalidRecord`: corruption, unsupported format, or resource-policy mismatch.
+  Preserve evidence without logging credentials; fail closed.
+- Throttles: inspect abuse/rate limits and capacity before raising concurrency.
+- Optional Braket failure: enrollment command fails; existing record verification
+  is unaffected. A timed-out job may still incur AWS charges; inspect its status
+  in Braket before retrying.
 
-## Operational Tasks
+## Recovery and rotation
 
-* **Cache Flush**: run `redis-cli FLUSHALL` to clear stored quantum bytes when
-  corruption is suspected or after a major upgrade.
-* **Pepper Rotation**: update the `QS_PEPPER` secret and redeploy the Lambda
-  function. Old peppers remain valid for 24 hours to avoid lockouts.
-* **Redeploy Steps**: build the container, push to ECR and run `make deploy`
-  from the CI runner. Ensure the Step Function points at the new image tag.
-* **Monitoring Tips**: watch CloudWatch for Braket errors, Redis latency and
-  container restarts. Alert on sustained spikes or missing metrics.
+There is no Redis cache to flush. The database record is all public verification
+state; its corresponding protected key must remain available. Follow the add-key,
+verify-old, rehash-on-login procedure in `deployment.md`. Count remaining records
+per key ID before retirement and include backup retention in the decision.
+Deleting a needed key or losing a local pepper prevents verification and usually
+requires account recovery. Never remove old keys simply because 24 hours elapsed.
+
+Roll back only to builds that understand all formats already written. Do not
+mutate stored costs/key IDs to force compatibility. A compromised local pepper
+requires new keys plus re-enrollment; a stolen database and stolen pepper can
+still be attacked after rotation. KMS IAM compromise requires revoking access,
+investigating oracle use, and an incident-specific credential recovery decision.
+
+## Reproducible local baseline
+
+Run `python scripts/benchmark.py --samples 30` for a synthetic local HMAC
+verification baseline. `docs/security/local-benchmark.json` records the review
+machine's measurements. It excludes KMS, network latency, Lambda cold starts,
+and concurrent traffic, so it must not be treated as a production latency SLO.

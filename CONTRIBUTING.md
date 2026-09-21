@@ -1,7 +1,7 @@
 # Contributing
 
 This project requires **Python 3.10 or newer**. The CI tests run on
-Python 3.10 through 3.13. Development can begin quickly with the
+Python 3.10 through 3.14. Development can begin quickly with the
 `.codex/setup.sh` script or by installing the requirements manually.
 
 ## Quick Setup
@@ -38,3 +38,8 @@ pre-commit run --files <files>
 pytest
 ```
 
+
+The v2 protocol lives in `src/qs_kdf/records.py`; legacy code in `core.py` is
+retained for migration. Do not silently change an existing record format, key ID,
+or legacy derivation. Add a version and a migration plan for protocol changes.
+See `docs/security/design-review.md` for the threat model and release limits.

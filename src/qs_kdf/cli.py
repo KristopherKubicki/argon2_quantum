@@ -1,158 +1,122 @@
-"""Command-line interface for hashing and verifying passwords."""
+"""CLI for versioned records; passwords come from a prompt or bounded stdin."""
 
 import argparse
+import getpass
+import json
 import os
+from pathlib import Path
+import sys
 
-import qs_kdf
+from . import __version__
+from .records import LocalPepper, PasswordHasher, ProviderUnavailable
+from .service import _configured_hasher, _unique_object
 
-from .constants import (
-    MAX_PASSWORD_BYTES,
-    MAX_SALT_BYTES,
-    MIN_TIME_COST,
-    MAX_TIME_COST,
-    MIN_MEMORY_COST,
-    MAX_MEMORY_COST,
-    MIN_PARALLELISM,
-    MAX_PARALLELISM,
-)
 
-from .core import LocalBackend, hash_password, lambda_handler, verify_password
+def _local_hasher(keyring_path: str | None) -> PasswordHasher:
+    if keyring_path:
+        with Path(keyring_path).open(encoding="utf-8") as stream:
+            raw = stream.read(8193)
+        if len(raw) > 8192:
+            raise ValueError("keyring file exceeds 8192 characters")
+        config = json.loads(raw, object_pairs_hook=_unique_object)
+        if not isinstance(config, dict) or set(config) != {"current", "keys"}:
+            raise ValueError("keyring must contain current and keys")
+        values = config["keys"]
+        if not isinstance(values, dict) or not 1 <= len(values) <= 16:
+            raise ValueError("keyring must contain 1..16 keys")
+        current = config["current"]
+    else:
+        current = os.environ.get("QS_CURRENT_KEY_ID", "local-1")
+        value = os.environ.get("QS_PEPPER_HEX", "")
+        values = {current: value}
+    if any(not isinstance(v, str) or len(v) != 64 for v in values.values()):
+        raise ValueError(
+            "provide a keyring or QS_PEPPER_HEX with 64 hex characters per key"
+        )
+    try:
+        keys = {k: bytes.fromhex(v) for k, v in values.items()}
+    except ValueError:
+        raise ValueError("pepper keys must be hexadecimal") from None
+    return PasswordHasher(LocalPepper(keys), current)
+
+
+def _password(args) -> str:
+    if args.password_stdin:
+        value = sys.stdin.readline(1026)
+        if value.endswith("\n"):
+            value = value[:-1]
+            if value.endswith("\r"):
+                value = value[:-1]
+        return value
+    value = getpass.getpass("Password: ")
+    if args.cmd == "hash" and value != getpass.getpass("Confirm password: "):
+        raise ValueError("passwords do not match")
+    return value
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Parse arguments and hash or verify a password.
-
-    Args:
-        argv: Optional list of command-line arguments.
-
-    Returns:
-        int: ``0`` on success, ``1`` when password verification fails.
-    """
-
     parser = argparse.ArgumentParser(prog="qs_kdf")
-    parser.add_argument("--version", action="version", version=qs_kdf.__version__)
+    parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="cmd", required=True)
-    h = sub.add_parser("hash")
-    h.add_argument("password")
-    h.add_argument("--salt")
-    h.add_argument("--cloud", action="store_true")
-    h.add_argument(
-        "--device-arn", default="arn:aws:braket:::device/qpu/ionq/ionQdevice"
-    )
-    h.add_argument("--num-bytes", type=int, default=10)
-    h.add_argument("--time-cost", type=int, default=3)
-    h.add_argument("--memory-cost", type=int, default=262_144)
-    h.add_argument("--parallelism", type=int, default=4)
-
-    v = sub.add_parser("verify")
-    v.add_argument("password")
-    v.add_argument("--salt", required=True)
-    v.add_argument("--digest", required=True)
-    v.add_argument("--time-cost", type=int, default=3)
-    v.add_argument("--memory-cost", type=int, default=262_144)
-    v.add_argument("--parallelism", type=int, default=4)
-
-    args = parser.parse_args(argv)
-    if args.salt is None:
-        salt = os.urandom(16)
-        salt_hex = salt.hex()
-    else:
-        try:
-            salt = bytes.fromhex(args.salt)
-        except ValueError as exc:
-            raise argparse.ArgumentTypeError(
-                f"invalid hex value for --salt: {args.salt}"
-            ) from exc
-        salt_hex = args.salt
-    if len(args.password.encode()) > MAX_PASSWORD_BYTES:
-        parser.error(f"password exceeds {MAX_PASSWORD_BYTES} bytes")
-    if len(salt) > MAX_SALT_BYTES:
-        parser.error(f"salt exceeds {MAX_SALT_BYTES} bytes")
-    if not (MIN_TIME_COST <= args.time_cost <= MAX_TIME_COST):
-        parser.error(f"--time-cost must be between {MIN_TIME_COST} and {MAX_TIME_COST}")
-    if not (MIN_MEMORY_COST <= args.memory_cost <= MAX_MEMORY_COST):
-        parser.error(
-            f"--memory-cost must be between {MIN_MEMORY_COST} and {MAX_MEMORY_COST}"
-        )
-    if not (MIN_PARALLELISM <= args.parallelism <= MAX_PARALLELISM):
-        parser.error(
-            f"--parallelism must be between {MIN_PARALLELISM} and {MAX_PARALLELISM}"
-        )
-    if args.cmd == "hash":
-        if args.cloud:
-            required = ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"]
-            missing = [v for v in required if v not in os.environ]
-            if missing:
-                parser.error(
-                    "--cloud requires environment variables: " + ", ".join(missing)
-                )
-            response = lambda_handler(
-                {
-                    "password": args.password,
-                    "salt": salt_hex,
-                    "device_arn": args.device_arn,
-                    "num_bytes": args.num_bytes,
-                },
-                None,
+    for command in ("hash", "verify", "migrate-legacy"):
+        p = sub.add_parser(command)
+        p.add_argument("--password-stdin", action="store_true")
+        group = p.add_mutually_exclusive_group()
+        group.add_argument("--keyring", help="server-side JSON pepper keyring file")
+        group.add_argument("--kms", action="store_true", help="use QS_KMS_KEYS keyring")
+        if command == "verify":
+            p.add_argument("--record", required=True)
+        if command == "hash":
+            p.add_argument(
+                "--quantum-device-arn", help="optional enrollment entropy only"
             )
-            digest_hex = response["digest"]
-        else:
-            pepper_env = os.getenv("QS_PEPPER")
-            if pepper_env is None:
-                parser.error("QS_PEPPER environment variable required")
-            pepper = pepper_env.encode()
-            if len(pepper) == 0:
-                parser.error("QS_PEPPER must not be empty")
-            if len(pepper) != 32:
-                parser.error("QS_PEPPER must be 32 bytes")
-            backend = LocalBackend()
-            digest_hex = hash_password(
-                args.password,
-                salt,
-                backend=backend,
-                pepper=pepper,
+        if command == "migrate-legacy":
+            p.add_argument("--salt", required=True)
+            p.add_argument("--digest", required=True)
+            p.add_argument("--time-cost", type=int, default=3)
+            p.add_argument("--memory-cost", type=int, default=262_144)
+            p.add_argument("--parallelism", type=int, default=4)
+    args = parser.parse_args(argv)
+    try:
+        hasher = (
+            _configured_hasher(
+                os.environ.get("QS_KMS_KEYS", ""),
+                os.environ.get("QS_CURRENT_KEY_ID", ""),
+            )
+            if args.kms
+            else _local_hasher(args.keyring)
+        )
+        password = _password(args)
+        if args.cmd == "verify":
+            valid = hasher.verify(password, args.record)
+            print("OK" if valid else "NOPE")
+            return 0 if valid else 1
+        if args.cmd == "migrate-legacy":
+            from .legacy import verify_local
+
+            if not verify_local(
+                password,
+                args.salt,
+                args.digest,
                 time_cost=args.time_cost,
                 memory_cost=args.memory_cost,
                 parallelism=args.parallelism,
-            ).hex()
-        if args.salt is None:
-            print(f"{salt_hex} {digest_hex}")
-        else:
-            print(digest_hex)
-    else:
-        try:
-            digest = bytes.fromhex(args.digest)
-        except ValueError as exc:
-            raise argparse.ArgumentTypeError(
-                f"invalid hex value for --digest: {args.digest}"
-            ) from exc
-        if len(digest) != 32:
-            raise argparse.ArgumentTypeError(
-                f"--digest must decode to 32 bytes, got {len(digest)}"
-            )
-        pepper_env = os.getenv("QS_PEPPER")
-        if pepper_env is None:
-            parser.error("QS_PEPPER environment variable required")
-        pepper = pepper_env.encode()
-        if len(pepper) == 0:
-            parser.error("QS_PEPPER must not be empty")
-        if len(pepper) != 32:
-            parser.error("QS_PEPPER must be 32 bytes")
-        backend = LocalBackend()
-        ok = verify_password(
-            args.password,
-            salt,
-            digest,
-            backend=backend,
-            pepper=pepper,
-            time_cost=args.time_cost,
-            memory_cost=args.memory_cost,
-            parallelism=args.parallelism,
-        )
-        print("OK" if ok else "NOPE")
-        return 0 if ok else 1
-    return 0
+            ):
+                print("NOPE")
+                return 1
+        supplemental = b""
+        if args.cmd == "hash" and args.quantum_device_arn:
+            from .core import BraketBackend
+            from .records import password_bytes
 
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+            password_bytes(password)  # Validate before spending QPU time.
+            supplemental = BraketBackend(device_arn=args.quantum_device_arn).run(b"")
+        print(hasher.hash(password, supplemental_entropy=supplemental))
+        return 0
+    except ProviderUnavailable:
+        print("Protected key service unavailable", file=sys.stderr)
+        return 3
+    except (ValueError, TypeError, RuntimeError, OSError, EOFError) as exc:
+        # These are local validation/configuration messages, not password payloads.
+        parser.error(str(exc))
+    return 2

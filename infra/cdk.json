@@ -1,0 +1,7 @@
+{
+  "app": "python app.py",
+  "context": {
+    "keyIds": ["k1"],
+    "currentKeyId": "k1"
+  }
+}

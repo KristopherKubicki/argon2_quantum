@@ -1,281 +1,175 @@
-import base64
-import hashlib
-import ssl
-import sys
-import types
-from dataclasses import asdict
+import hmac
 
+import boto3
+from botocore.stub import Stubber
 import pytest
 
-from qs_kdf.core import HashEvent, hash_password, lambda_handler
+from qs_kdf import (
+    InvalidRecord,
+    LocalPepper,
+    PasswordHasher,
+    Parameters,
+    ProviderUnavailable,
+)
+from qs_kdf.service import KmsMac, lambda_handler
+import qs_kdf.service as service
+
+ARN = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789abc"
+KEY = b"x" * 32
 
 
-class DummyBackend:
-    def __init__(self, byte: bytes) -> None:
-        self.byte = byte
+class FakeKms:
+    def __init__(self):
+        self.calls = []
 
-    def run(self, _seed: bytes) -> bytes:
-        return self.byte
-
-
-class FakeKMS:
-    def __init__(self, pepper: bytes, cipher: bytes) -> None:
-        self.pepper = pepper
-        self.cipher = cipher
-        self.decrypt_called = 0
-
-    def decrypt(self, KeyId: str, CiphertextBlob: bytes):
-        self.decrypt_called += 1
-        assert CiphertextBlob == self.cipher
-        return {"Plaintext": self.pepper}
+    def generate_mac(self, **kwargs):
+        self.calls.append(kwargs)
+        assert kwargs["KeyId"] == ARN
+        assert kwargs["MacAlgorithm"] == "HMAC_SHA_256"
+        return {
+            "Mac": hmac.digest(KEY, kwargs["Message"], "sha256"),
+            "KeyId": ARN,
+            "MacAlgorithm": "HMAC_SHA_256",
+        }
 
 
-class FakeResult:
-    def __init__(self, bits: str, shots: int) -> None:
-        self.measurement_counts = {bits: shots}
+@pytest.fixture
+def configured(monkeypatch):
+    client = FakeKms()
+    hasher = PasswordHasher(KmsMac(client, {"k1": ARN}), "k1", Parameters(19456, 2, 1))
+    monkeypatch.setattr(service, "_configured_hasher", lambda *args: hasher)
+    return client, hasher
 
 
-class FakeTask:
-    def __init__(self, bits: str, shots: int) -> None:
-        self._bits = bits
-        self._shots = shots
-
-    def result(self):
-        return FakeResult(self._bits, self._shots)
-
-
-class FakeBraketDevice:
-    def __init__(self, bits: str) -> None:
-        self.bits = bits
-        self.run_calls = 0
-        self.shots: list[int] = []
-
-    def run(self, circuit, shots: int):
-        self.run_calls += 1
-        self.shots.append(shots)
-        return FakeTask(self.bits, shots)
-
-
-class FakeCircuit:
-    def h(self, *args, **kwargs):
-        return self
-
-    def measure(self, *args, **kwargs):
-        return self
-
-
-class FakeBoto3:
-    def __init__(self, kms: FakeKMS) -> None:
-        self.kms = kms
-
-    def client(self, service: str):
-        assert service == "kms"
-        return self.kms
-
-
-class FakeRedisClient:
-    def __init__(self, preset: dict[str, bytes] | None = None) -> None:
-        self.store: dict[str, bytes] = preset or {}
-        self.set_calls: list[tuple[str, int, bytes]] = []
-
-    def get(self, key: str):
-        return self.store.get(key)
-
-    def setex(self, key: str, ttl: int, value: bytes):
-        self.store[key] = value
-        self.set_calls.append((key, ttl, value))
-
-
-class FakeRedisModule:
-    def __init__(self, client: FakeRedisClient) -> None:
-        self._client = client
-        self.password: str | None = None
-        self.ssl: bool | None = None
-        self.ssl_cert_reqs: object | None = None
-
-    def Redis(self, host: str, port: int, **kwargs):
-        assert host == "r"
-        assert port == 6379
-        self.password = kwargs.get("password")
-        self.ssl = kwargs.get("ssl")
-        self.ssl_cert_reqs = kwargs.get("ssl_cert_reqs")
-        return self._client
-
-
-@pytest.fixture()
-def _env(monkeypatch):
-    monkeypatch.setenv("KMS_KEY_ID", "my-key")
-    monkeypatch.setenv("PEPPER_CIPHERTEXT", base64.b64encode(b"cipher").decode())
-    monkeypatch.setenv("REDIS_HOST", "r")
-    monkeypatch.setenv("REDIS_PORT", "6379")
-    monkeypatch.setenv("REDIS_PASSWORD", "secret")
-    monkeypatch.setenv("REDIS_TLS", "1")
-
-
-def _expected_digest(
-    password: str, salt_hex: str, pepper: bytes, quantum: bytes
-) -> str:
-    backend = DummyBackend(quantum)
-    digest = hash_password(
-        password, bytes.fromhex(salt_hex), backend=backend, pepper=pepper
+def test_lambda_survives_loss_of_all_transient_state(configured, monkeypatch):
+    client, hasher = configured
+    record = lambda_handler({"action": "hash", "password": "pw"}, None)["record"]
+    fresh_client = FakeKms()
+    fresh = PasswordHasher(
+        KmsMac(fresh_client, {"k1": ARN}), "k1", Parameters(19456, 2, 1)
     )
-    return digest.hex()
+    monkeypatch.setattr(service, "_configured_hasher", lambda *args: fresh)
+    assert lambda_handler(
+        {"action": "verify", "password": "pw", "record": record}, None
+    ) == {
+        "valid": True,
+        "needs_rehash": False,
+    }
+    assert not lambda_handler(
+        {"action": "verify", "password": "bad", "record": record}, None
+    )["valid"]
+    assert len(client.calls) == 1
+    assert len(fresh_client.calls) == 2
+    # KMS and local HMAC agree on the exact protocol, independently of caching.
+    assert PasswordHasher(LocalPepper({"k1": KEY}), "k1").verify("pw", record)
 
 
-def _setup_modules(
-    monkeypatch, kms: FakeKMS, redis_client: FakeRedisClient, device: FakeBraketDevice
-) -> FakeRedisModule:
-    monkeypatch.setitem(sys.modules, "boto3", FakeBoto3(kms))
-    redis_module = FakeRedisModule(redis_client)
-    monkeypatch.setitem(sys.modules, "redis", redis_module)
-
-    monkeypatch.setitem(
-        sys.modules,
-        "braket.aws",
-        types.SimpleNamespace(AwsDevice=lambda arn: device),
+@pytest.mark.parametrize(
+    "event",
+    [
+        None,
+        [],
+        {},
+        {"password": "pw", "salt": "00" * 16},
+        {"action": "hash", "password": "pw", "device_arn": "attacker"},
+        {"action": "hash", "password": "x" * 1025},
+        {"action": "verify", "password": "pw", "record": "$malformed"},
+        {"action": "hash", "password": "pw", "memory_cost": 999999},
+    ],
+)
+def test_invalid_input_rejected_before_aws(event, monkeypatch):
+    monkeypatch.setattr(
+        service, "_configured_hasher", lambda *a: pytest.fail("AWS accessed")
     )
-    monkeypatch.setitem(
-        sys.modules,
-        "botocore.exceptions",
-        types.SimpleNamespace(NoCredentialsError=Exception),
+    with pytest.raises((ValueError, TypeError, InvalidRecord)):
+        lambda_handler(event, None)
+
+
+def test_kms_failure_never_falls_back(configured, monkeypatch):
+    client, hasher = configured
+    record = hasher.hash("pw")
+
+    def unavailable(**kwargs):
+        raise RuntimeError("SDK error containing sensitive data")
+
+    monkeypatch.setattr(client, "generate_mac", unavailable)
+    with pytest.raises(ProviderUnavailable) as caught:
+        lambda_handler({"action": "verify", "password": "pw", "record": record}, None)
+    assert "sensitive" not in str(caught.value)
+
+
+def test_real_sdk_request_contract():
+    client = boto3.client(
+        "kms",
+        region_name="us-east-1",
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
     )
-    monkeypatch.setitem(
-        sys.modules,
-        "braket.circuits",
-        types.SimpleNamespace(Circuit=lambda: FakeCircuit()),
-    )
-
-    return redis_module
-
-
-def test_lambda_handler_cache_miss(monkeypatch, _env):
-    quantum = b"\xaa" * 10
-    pepper = b"pepper"
-    kms = FakeKMS(pepper, b"cipher")
-    device = FakeBraketDevice("10101010")
-    redis_client = FakeRedisClient()
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = asdict(HashEvent(password="pw", salt="00" * 16))
-    result = lambda_handler(event, None)
-
-    assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
-    assert kms.decrypt_called == 1
-    assert device.run_calls == 1
-    assert device.shots == [10]
-    assert redis_client.set_calls
+    with Stubber(client) as stub:
+        stub.add_response(
+            "generate_mac",
+            {
+                "Mac": b"m" * 32,
+                "KeyId": ARN,
+                "MacAlgorithm": "HMAC_SHA_256",
+            },
+            {"KeyId": ARN, "Message": b"message", "MacAlgorithm": "HMAC_SHA_256"},
+        )
+        assert KmsMac(client, {"k1": ARN}).mac("k1", b"message") == b"m" * 32
+        stub.assert_no_pending_responses()
 
 
-def test_lambda_handler_cache_hit(monkeypatch, _env):
-    quantum = b"\x42" * 10
-    pepper = b"pepper"
-    key = hashlib.sha256(bytes.fromhex("11" * 16)).hexdigest()
-    redis_client = FakeRedisClient({key: quantum})
-    kms = FakeKMS(pepper, b"cipher")
-    device = FakeBraketDevice("01000010")
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = asdict(HashEvent(password="pw", salt="11" * 16))
-    result = lambda_handler(event, None)
-
-    assert result["digest"] == _expected_digest("pw", event["salt"], pepper, quantum)
-    assert device.run_calls == 0
-    assert not redis_client.set_calls
-
-
-def test_lambda_handler_invalid_salt(monkeypatch, _env):
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("00000000")
-    redis_client = FakeRedisClient()
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = {"password": "pw", "salt": "zz"}
+def test_keyring_rejects_aliases():
     with pytest.raises(ValueError):
-        lambda_handler(event, None)
+        KmsMac(FakeKms(), {"k1": "alias/mutable"})
 
 
-@pytest.mark.parametrize("var", ["KMS_KEY_ID", "PEPPER_CIPHERTEXT", "REDIS_HOST"])
-def test_lambda_handler_missing_env(monkeypatch, var, _env):
-    redis_client = FakeRedisClient()
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("00000000")
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    monkeypatch.delenv(var, raising=False)
-    with pytest.raises(RuntimeError) as exc:
-        lambda_handler(asdict(HashEvent(password="pw", salt="22" * 16)), None)
-    assert var in str(exc.value)
-
-
-def test_lambda_handler_redis_options(monkeypatch, _env):
-    redis_client = FakeRedisClient()
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("10101010")
-    redis_module = _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = asdict(HashEvent(password="pw", salt="33" * 16))
-    lambda_handler(event, None)
-
-    assert redis_module.password == "secret"
-    assert redis_module.ssl is True
-    assert redis_module.ssl_cert_reqs == ssl.CERT_REQUIRED
+@pytest.mark.parametrize(
+    "response",
+    [
+        {},
+        {"Mac": b"short"},
+        {"Mac": b"m" * 32, "KeyId": "wrong", "MacAlgorithm": "HMAC_SHA_256"},
+    ],
+)
+def test_bad_kms_response_is_failure(monkeypatch, response):
+    client = FakeKms()
+    monkeypatch.setattr(client, "generate_mac", lambda **kwargs: response)
+    with pytest.raises(ProviderUnavailable):
+        KmsMac(client, {"k1": ARN}).mac("k1", b"message")
 
 
-def test_lambda_handler_invalid_cert_reqs(monkeypatch, _env):
-    monkeypatch.setenv("REDIS_CERT_REQS", "none")
-    redis_client = FakeRedisClient()
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("10101010")
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = asdict(HashEvent(password="pw", salt="44" * 16))
-    with pytest.raises(RuntimeError):
-        lambda_handler(event, None)
-
-
-def test_lambda_handler_invalid_port(monkeypatch, _env):
-    monkeypatch.setenv("REDIS_PORT", "notint")
-    redis_client = FakeRedisClient()
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("10101010")
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = asdict(HashEvent(password="pw", salt="55" * 16))
-    with pytest.raises(RuntimeError, match="REDIS_PORT must be an integer"):
-        lambda_handler(event, None)
+def test_configuration_checks_before_client_creation(monkeypatch):
+    service._configured_hasher.cache_clear()
+    monkeypatch.setattr(boto3, "client", lambda *a, **k: pytest.fail("AWS accessed"))
+    for keyring, current in (
+        ("", "k1"),
+        ('{"k1":"alias/bad"}', "k1"),
+        ('{"k1":"a","k1":"b"}', "k1"),
+        ("[]", "k1"),
+    ):
+        with pytest.raises((ValueError, RuntimeError)):
+            service._configured_hasher(keyring, current)
 
 
-def test_lambda_handler_port_out_of_range(monkeypatch, _env):
-    monkeypatch.setenv("REDIS_PORT", "70000")
-    redis_client = FakeRedisClient()
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("10101010")
-    _setup_modules(monkeypatch, kms, redis_client, device)
+def test_configuration_sets_bounded_timeouts_and_caches_client(monkeypatch):
+    import json
 
-    event = asdict(HashEvent(password="pw", salt="56" * 16))
-    with pytest.raises(RuntimeError, match="REDIS_PORT must be between 1 and 65535"):
-        lambda_handler(event, None)
+    service._configured_hasher.cache_clear()
+    calls = []
 
+    def client(name, config):
+        assert name == "kms"
+        assert config.connect_timeout == 2
+        assert config.read_timeout == 3
+        assert config.retries["total_max_attempts"] == 2
+        calls.append(name)
+        return FakeKms()
 
-def test_lambda_handler_invalid_num_bytes(monkeypatch, _env):
-    redis_client = FakeRedisClient()
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("10101010")
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = asdict(HashEvent(password="pw", salt="66" * 16))
-    event["num_bytes"] = "oops"
-    with pytest.raises(RuntimeError, match="num_bytes must be an integer"):
-        lambda_handler(event, None)
-
-
-def test_lambda_handler_negative_num_bytes(monkeypatch, _env):
-    redis_client = FakeRedisClient()
-    kms = FakeKMS(b"pepper", b"cipher")
-    device = FakeBraketDevice("10101010")
-    _setup_modules(monkeypatch, kms, redis_client, device)
-
-    event = asdict(HashEvent(password="pw", salt="77" * 16))
-    event["num_bytes"] = -1
-    with pytest.raises(RuntimeError, match="num_bytes must be a positive integer"):
-        lambda_handler(event, None)
+    monkeypatch.setattr(boto3, "client", client)
+    config = json.dumps({"k1": ARN})
+    first = service._configured_hasher(config, "k1")
+    assert service._configured_hasher(config, "k1") is first
+    assert len(calls) == 1
+    assert first.verify("pw", first.hash("pw"))
+    service._configured_hasher.cache_clear()

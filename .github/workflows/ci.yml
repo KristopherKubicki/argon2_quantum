@@ -1,44 +1,43 @@
 name: CI
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-    env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     strategy:
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python }}
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install uv
-          uv pip install --system -r requirements.txt
-          uv pip install --system -r requirements-dev.txt
-          uv pip install --system -r infra/requirements.txt
-          uv pip install --system .
-          uv pip install --system ruff
-          uv pip install --system bandit
-      - name: Ruff
-        run: ruff check .
-      - name: Bandit
-        run: bandit -c .bandit.yml -r src/qs_kdf
-      - name: Tests
-        run: |
-          uv pip install --system pytest pytest-cov
-          pytest --cov=src --cov-report=xml --cov-fail-under=70
-      - name: Upload coverage
-        if: env.CODECOV_TOKEN != ''
-        uses: codecov/codecov-action@v3
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          files: ./coverage.xml
-          token: ${{ env.CODECOV_TOKEN }}
-      - name: CDK Synth
+          node-version: "22"
+      - run: python -m pip install -e '.[dev]'
+      - run: ruff check . && ruff format --check .
+      - run: bandit -c .bandit.yml -r src/qs_kdf
+      - run: pytest --cov=qs_kdf --cov-report=term-missing --cov-fail-under=85
+      - run: python -m build
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - run: python -m pip install -e '.[dev]'
+      - run: pip-audit -r requirements-lambda.txt
+      - run: bash scripts/package_lambda.sh
+      - name: Test isolated Lambda artifact
+        run: |
+          cd /tmp
+          PYTHONPATH="$GITHUB_WORKSPACE/build/lambda" python -c 'import qs_kdf; from qs_kdf import LocalPepper, PasswordHasher; h=PasswordHasher(LocalPepper({"ci": b"x"*32}), "ci"); assert h.verify("pw", h.hash("pw")); assert qs_kdf.__version__ == "0.2.0"'
+      - name: Synthesize deployable infrastructure
         working-directory: infra
-        run: cdk synth
-        continue-on-error: true
+        run: python app.py

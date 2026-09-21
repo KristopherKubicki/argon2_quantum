@@ -24,3 +24,8 @@ node_modules/
 
 # Miscellaneous
 .DS_Store
+.uv-cache/
+cdk.out/
+coverage.xml
+.ruff_cache/
+.precommit-cache/
