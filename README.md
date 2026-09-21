@@ -1,117 +1,46 @@
-# Argon2 Quantum
+# Argon2 Quantum / Quantum Annoying
 
-[![CI](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml/badge.svg)](https://github.com/KristopherKubicki/argon2_quantum/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/KristopherKubicki/argon2_quantum/graph/badge.svg?token=JuPPmkMFxR)](https://codecov.io/gh/KristopherKubicki/argon2_quantum)
+**Experimental research — not production-ready cryptography.**
 
-**Quantum-enhanced Argon2 with a dash of real qubits.** The library fetches ten bytes of entropy from AWS Braket and folds them into the salt before running a classic Argon2 hash. The approach increases the cost of large-scale offline attacks, though it is *not* a post‑quantum scheme.
+## Status
 
-## Table of Contents
-- [Background](#background)
-- [Quantum Circuit](#quantum-circuit)
-- [Quick Start](#quick-start)
-- [Infrastructure](#infrastructure)
-- [Development](#development)
-- [License](#license)
+The original “quantum speedbump” claim was not supported by the implementation.
+Adding quantum-generated randomness to an Argon2 salt does not establish that an
+attacker must run a quantum computation or repeat an AWS Braket call for every
+password guess. The earlier claims of an added quantum work factor are withdrawn.
 
-## Background
-This project demonstrates a minimal "quantum stretch". A tiny circuit runs on managed quantum hardware or the simulator and returns ten truly random bytes. These bytes are appended to your chosen salt and fed into a normal Argon2 hashing step. The extra call to Braket raises the attacker's cost because each password guess must repeat the service call.
+The code and older documentation on the default branch are retained as an
+experimental prototype. They should not be treated as deployment guidance,
+a validated encryption algorithm, or a post-quantum security guarantee.
 
-> **Security Notice**
-> The quantum stretch slows classical brute force attempts but offers no resistance once large fault‑tolerant quantum computers exist.
+## Current work
 
-## Quantum Circuit
-The library derives randomness from a short circuit applying Hadamard
-gates to eight qubits and measuring the result. Each shot yields one
-byte of entropy. See [docs/quantum-circuit.md](docs/quantum-circuit.md)
-for a step-by-step explanation.
+Two separate draft efforts document what is supported and what remains research:
 
-## Quick Start
-### Installation
-```bash
-pip install .
-python -m qs_kdf hash mypassword --salt deadbeefcafebabe
+- [Password-record hardening and design review — PR #174](https://github.com/KristopherKubicki/argon2_quantum/pull/174):
+  versioned Argon2id records and protected-key access. This is a conventional
+  security boundary, not a quantum computational speedbump.
+- [Quantum Annoying research lab — PR #175](https://github.com/KristopherKubicki/argon2_quantum/pull/175):
+  a reproducible toy key-exchange model, executable attacks, and an interactive
+  report exploring password-dependent discrete-log targets. Its results are
+  specific attack demonstrations, not quantum timings or a security proof.
 
-# or let the CLI pick a salt for you
-python -m qs_kdf hash mypassword
-```
+The lab also demonstrates limitations: key disclosure, server-record theft,
+and reuse across sessions can reduce or remove the intended extra work.
+Its small group, public seeded randomness, and simulated ideal ciphers make it
+unsuitable for real credentials. A concrete construction, broader analysis,
+and independent cryptographic review remain prerequisites to deployment.
 
-### Hash a password
-```bash
-python -m qs_kdf hash "mypassword" --salt deadbeefcafebabe
-```
-
-When no salt is provided the CLI prints the generated salt and digest separated
-by a space. The salt must be saved for verification.
-
-```bash
-$ python -m qs_kdf hash mypassword
-0123456789abcdef0123456789abcdef deadbeef...
-```
-
-Running without `--cloud` keeps all computation local using the built-in
-simulator backend.
-
-Set ``QS_WARMUP=1`` or call ``qs_kdf.warm_up()`` to preload Argon2 memory
-for consistent benchmarking.
-
-
-### QS_PEPPER
-
-The pepper in [src/qs_kdf/constants.py](src/qs_kdf/constants.py) is
-included only so the examples run out of the box. Local hashing fails
-unless ``QS_PEPPER`` is set to a 32-byte secret. Export your own value
-before invoking the CLI. See
-[docs/getting-started.md](docs/getting-started.md) lines 55-57 and 67 for
-instructions on overriding ``QS_PEPPER``. Always set a unique 32-byte
-secret in any production environment.
-
-The ``BraketBackend`` defaults to the IonQ QPU but accepts a ``device_arn``
-parameter if you wish to target a different device.
-
-The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) can be deployed
-with a single command:
-
-```bash
-cd infra && cdk deploy
-```
-
-Verify:
-
-```bash
-python -m qs_kdf verify "mypassword" --salt deadbeefcafebabe --digest <hex>
-```
-
-Running without `--cloud` keeps everything local using the built-in simulator. For a deeper walkthrough see [docs/getting-started.md](docs/getting-started.md).
-
-## Infrastructure
-The stack in [`infra/qs_kdf_stack.py`](infra/qs_kdf_stack.py) deploys the Lambda function, KMS key and supporting resources. Validate locally:
-```bash
-cd infra
-cdk synth
-```
-Deploy with `cdk deploy` or use the included Terraform module:
-```bash
-terraform -chdir=terraform apply
-```
-More background is available in the documents under [`docs/`](docs/).
-See [docs/lambda-build.md](docs/lambda-build.md) for instructions on
-packaging the Lambda function.
-See [docs/deployment.md](docs/deployment.md) for AWS setup and
-deployment steps.
+See the [research notes and roadmap](https://github.com/KristopherKubicki/argon2_quantum/blob/quantum-annoying-lab/research/README.md)
+for the measured results, assumptions, published references, and open questions.
+These draft branches have not been merged into the default branch.
 
 ## Development
-Use Python 3.10 or newer. Install the hooks once:
-```bash
-pre-commit install
-```
-Run the hooks and tests before committing:
-```bash
-pre-commit run --files <files>
-pip install -r requirements.txt -r requirements-dev.txt
-pytest
-```
-Missing packages such as `argon2-cffi` will cause test failures.
-Extra checks such as `mypy` or `bandit` are optional but recommended.
+
+Historical implementation material remains under [src](src/), [docs](docs/),
+and [infra](infra/). Existing setup and deployment instructions describe the
+prototype; they do not override the status above.
 
 ## License
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+[MIT](LICENSE).
