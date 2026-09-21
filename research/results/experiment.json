@@ -1,0 +1,123 @@
+{
+  "batch_scenario": {
+    "assumed_group_bits": 256,
+    "batch_256_proxy_units": 8192.0,
+    "batch_4096_proxy_units": 5461.333333333333,
+    "hypothetical_guesses": 65536,
+    "independent_units": 65536,
+    "omissions": [
+      "hidden constants",
+      "quantum memory",
+      "circuit compilation",
+      "error correction",
+      "hardware time",
+      "non-generic attacks"
+    ],
+    "status": "ILLUSTRATIVE ASYMPTOTIC SHAPE ONLY, NO QUANTUM BENCHMARK"
+  },
+  "cases": [
+    {
+      "guesses": 32,
+      "metrics": {
+        "classical_baby_steps": 22361,
+        "classical_giant_steps": 17302,
+        "distinct_dlog_targets": 1,
+        "dlog_requests": 1
+      },
+      "name": "public-X control",
+      "recovered": "synthetic-password-031"
+    },
+    {
+      "guesses": 32,
+      "metrics": {
+        "classical_baby_steps": 22361,
+        "classical_giant_steps": 398865,
+        "distinct_dlog_targets": 32,
+        "dlog_requests": 32
+      },
+      "name": "hidden-X transcript",
+      "recovered": "synthetic-password-031"
+    },
+    {
+      "guesses": 32,
+      "metrics": {
+        "classical_baby_steps": 22361,
+        "classical_giant_steps": 17302,
+        "distinct_dlog_targets": 1,
+        "dlog_requests": 1
+      },
+      "name": "wrapping-key disclosure",
+      "recovered": "synthetic-password-031"
+    },
+    {
+      "guesses": 32,
+      "metrics": {
+        "dlog_requests": 0
+      },
+      "name": "stolen server credentials",
+      "recovered": "synthetic-password-031"
+    },
+    {
+      "guesses": 32,
+      "metrics": {
+        "dlog_requests": 0
+      },
+      "name": "password-confirming envelope control",
+      "recovered": "synthetic-password-031"
+    }
+  ],
+  "correct_guess_rank": 32,
+  "cross_session": {
+    "cumulative": {
+      "classical_baby_steps": 22361,
+      "classical_giant_steps": 349133,
+      "distinct_dlog_targets": 34,
+      "dlog_requests": 66
+    },
+    "dictionary_guesses_total": 64,
+    "distinct_targets_added_second_session": 1,
+    "first_session": {
+      "classical_baby_steps": 22361,
+      "classical_giant_steps": 338312,
+      "distinct_dlog_targets": 33,
+      "dlog_requests": 33
+    },
+    "interpretation": "previous candidate-B solutions are reused; each new Y adds one target",
+    "name": "reuse candidate static-B logs across two sessions",
+    "sessions": 2
+  },
+  "dictionary_size": 32,
+  "group": {
+    "g": 4,
+    "order_bits": 29,
+    "p": 1000000007,
+    "q": 500000003
+  },
+  "honest_handshake": {
+    "mutual_confirmation": true,
+    "quantum_calls": 0
+  },
+  "model": {
+    "cipher": "lazy ideal-cipher tables; not an implementable distributed cipher",
+    "oracle": "classical baby-step giant-step with cached answers",
+    "randomness": "public deterministic seed; all data synthetic",
+    "scope": "specific attack demonstrations, not optimality or security proofs"
+  },
+  "schema": "quantum-annoying-lab/v1",
+  "seed": 20260921,
+  "sources": [
+    {
+      "title": "QA-KHAPE, Figure 1 and limitations",
+      "url": "https://eprint.iacr.org/2023/1513"
+    },
+    {
+      "title": "Quantum generic groups, Theorem 4.5",
+      "url": "https://arxiv.org/abs/2307.03065"
+    },
+    {
+      "title": "Original quantum-annoying model",
+      "url": "https://eprint.iacr.org/2021/696"
+    }
+  ],
+  "status": "INSECURE RESEARCH SIMULATOR — NOT FOR PASSWORDS OR DEPLOYMENT"
+}
