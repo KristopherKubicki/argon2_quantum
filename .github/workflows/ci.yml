@@ -38,7 +38,12 @@ jobs:
         with:
           files: ./coverage.xml
           token: ${{ env.CODECOV_TOKEN }}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
       - name: CDK Synth
         working-directory: infra
         run: cdk synth
-        continue-on-error: true
